@@ -291,9 +291,21 @@ pub fn report(req: Requirements<'_>) -> ModReport {
 
     let collection = scan(req.collection_items, &dirs, &acf);
     let items = scan(req.items, &dirs, &acf);
+    let statuses: Vec<ModStatus> = collection.into_iter().chain(items).collect();
 
+    // The server's own item ships inside the collection, so it only gets a row when there is none.
     let mut requirements: Vec<Requirement> = Vec::new();
-    if !req.collection_id.is_empty() {
+    if req.collection_id.is_empty() {
+        for status in &statuses {
+            requirements.push(tally(
+                "item",
+                &status.id,
+                &status.name,
+                std::slice::from_ref(status),
+                true,
+            ));
+        }
+    } else {
         let name = if req.collection_name.is_empty() {
             COLLECTION_FALLBACK_NAME
         } else {
@@ -303,21 +315,11 @@ pub fn report(req: Requirements<'_>) -> ModReport {
             "collection",
             req.collection_id,
             name,
-            &collection,
+            &statuses,
             !req.collection_items.is_empty(),
         ));
     }
-    for (entry, status) in req.items.iter().zip(items.iter()) {
-        requirements.push(tally(
-            "item",
-            &entry.id,
-            &entry.name,
-            std::slice::from_ref(status),
-            true,
-        ));
-    }
 
-    let statuses: Vec<ModStatus> = collection.into_iter().chain(items).collect();
     let installed = statuses.iter().filter(|m| m.installed).count();
     let downloading = statuses.iter().filter(|m| m.downloading).count();
 
@@ -602,11 +604,52 @@ mod requirement_tests {
             collection_name: "",
             collection_items: &[],
         });
-        assert_eq!(report.requirements.len(), 2);
+        assert_eq!(report.requirements.len(), 1);
         assert_eq!(report.requirements[0].kind, "collection");
         assert_eq!(report.requirements[0].name, COLLECTION_FALLBACK_NAME);
-        assert_eq!(report.requirements[1].id, "42");
-        assert!(report.requirements[1].verified);
+        assert!(!report.requirements[0].verified);
+    }
+
+    #[test]
+    fn the_servers_own_item_is_counted_inside_the_collection_row() {
+        let own = [ModEntry {
+            id: "42".into(),
+            name: "Core".into(),
+            time_updated: None,
+        }];
+        let pack = [ModEntry {
+            id: "43".into(),
+            name: "Car".into(),
+            time_updated: None,
+        }];
+        let report = report(Requirements {
+            items: &own,
+            collection_id: "77",
+            collection_name: "Pack",
+            collection_items: &pack,
+        });
+        assert_eq!(report.requirements.len(), 1);
+        assert_eq!(report.requirements[0].id, "77");
+        assert_eq!(report.requirements[0].total, 2);
+        assert_eq!(report.total, 2);
+    }
+
+    #[test]
+    fn without_a_collection_the_servers_own_item_keeps_its_row() {
+        let own = [ModEntry {
+            id: "42".into(),
+            name: "Core".into(),
+            time_updated: None,
+        }];
+        let report = report(Requirements {
+            items: &own,
+            collection_id: "",
+            collection_name: "",
+            collection_items: &[],
+        });
+        assert_eq!(report.requirements.len(), 1);
+        assert_eq!(report.requirements[0].kind, "item");
+        assert_eq!(report.requirements[0].id, "42");
     }
 
     #[test]

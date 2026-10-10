@@ -1,17 +1,17 @@
 {
     "mods": [
         {
-            "id": "3788277235",
-            "name": "Project '97 server content"
+            "id": "3817404376",
+            "name": "Project '97 Core Mods"
         }
     ],
-    "collectionId": "3776978997",
+    "collectionId": "3817393639",
     "collectionName": "Project '97 mod collection",
     "collectionMods": [
         {
             "id": "2409333430",
             "name": "'91 RANGE ROVER Classic",
-            "timeUpdated": 1783017543
+            "timeUpdated": 1791483143
         },
         {
             "id": "3770890864",
@@ -111,7 +111,7 @@
         {
             "id": "3570973322",
             "name": "'89 LAND ROVER Defender",
-            "timeUpdated": 1770319397
+            "timeUpdated": 1791483202
         },
         {
             "id": "3566868353",
@@ -246,7 +246,7 @@
         {
             "id": "3171167894",
             "name": "that DAMN Library",
-            "timeUpdated": 1791310809
+            "timeUpdated": 1791483081
         },
         {
             "id": "3161951724",
@@ -586,17 +586,17 @@
         {
             "id": "3716934959",
             "name": "Playable Minigames (Previously Playable Pool)",
-            "timeUpdated": 1789918771
+            "timeUpdated": 1791495080
         },
         {
             "id": "3538760023",
             "name": "[B42MP] Frockin Wiseguys!",
-            "timeUpdated": 1785421848
+            "timeUpdated": 1791550119
         },
         {
             "id": "3736813592",
             "name": "[B42MP] Frockin Stompers!",
-            "timeUpdated": 1785422337
+            "timeUpdated": 1791584466
         },
         {
             "id": "3453676250",
@@ -606,22 +606,22 @@
         {
             "id": "3411888105",
             "name": "[B42MP] Frockin Splendor! Vol.2",
-            "timeUpdated": 1788885400
+            "timeUpdated": 1791554977
         },
         {
             "id": "3475347500",
             "name": "[B42MP] Frockin Splendor! Vol.4",
-            "timeUpdated": 1785421676
+            "timeUpdated": 1791550419
         },
         {
             "id": "3635394848",
             "name": "[B42MP] Frockin Splendor! Vol.5",
-            "timeUpdated": 1785422212
+            "timeUpdated": 1791550001
         },
         {
             "id": "3431256608",
             "name": "[B42MP] Frockin Splendor! Vol.3",
-            "timeUpdated": 1785445352
+            "timeUpdated": 1791550554
         },
         {
             "id": "3307376332",
@@ -684,11 +684,6 @@
             "timeUpdated": 1787179139
         },
         {
-            "id": "3396446795",
-            "name": "Moodle Framework",
-            "timeUpdated": 1788783344
-        },
-        {
             "id": "3423984426",
             "name": "True Smoking [B42MP]",
             "timeUpdated": 1787681363
@@ -719,6 +714,11 @@
             "timeUpdated": 1790082400
         },
         {
+            "id": "3396446795",
+            "name": "Moodle Framework",
+            "timeUpdated": 1788783344
+        },
+        {
             "id": "3770136207",
             "name": "New Music - Graves Mixtapes Complete Collection",
             "timeUpdated": 1791242765
@@ -729,14 +729,39 @@
             "timeUpdated": 1788889835
         },
         {
+            "id": "3812970899",
+            "name": "Better Building Plus [B42 MP]",
+            "timeUpdated": 1791422065
+        },
+        {
             "id": "3718883428",
             "name": "RC's Structures Framework [B42.17+ MP]",
             "timeUpdated": 1791422034
         },
         {
-            "id": "3812970899",
-            "name": "Better Building Plus [B42 MP]",
-            "timeUpdated": 1791422065
+            "id": "3798146388",
+            "name": "[B42MP] Frockin Backstage!",
+            "timeUpdated": 1791639166
+        },
+        {
+            "id": "3778386398",
+            "name": "Puffin's Posters",
+            "timeUpdated": 1790900374
+        },
+        {
+            "id": "3799977254",
+            "name": "Pip's Rad Poster Pack [B42.20]",
+            "timeUpdated": 1789808857
+        },
+        {
+            "id": "2761200458",
+            "name": "Yaki's Hair Salon",
+            "timeUpdated": 1790981504
+        },
+        {
+            "id": "3172171349",
+            "name": "PALSJ's Poofs - Curly & Afro Hairstyles [B41]",
+            "timeUpdated": 1749260133
         }
     ],
     "newsUrl": "https://files.project97.life/news.json",
