@@ -1,0 +1,167 @@
+use std::path::PathBuf;
+
+pub const MANIFEST_URL_ENV: &str = "PLZ_MANIFEST_URL";
+
+pub const DEFAULT_MANIFEST_URL: &str = match option_env!("PLZ_MANIFEST_URL_BAKED") {
+    Some(url) => url,
+    None => "https://files.project97.life/release/manifest.json",
+};
+
+pub const STEAM_APP_ID: &str = "108600";
+
+// A CDN in front of the origin may refuse a request that names no client.
+pub const USER_AGENT: &str = concat!("Project97Launcher/", env!("CARGO_PKG_VERSION"));
+
+pub const LIVE_RELAY_URL_ENV: &str = "PLZ_LIVE_RELAY_URL";
+
+pub const DEFAULT_LIVE_RELAY_URL: &str = match option_env!("PLZ_LIVE_RELAY_URL_BAKED") {
+    Some(url) => url,
+    None => "https://plz-live-relay.rcpz.workers.dev",
+};
+
+pub const PRESS_URL_ENV: &str = "PLZ_PRESS_URL";
+
+pub const DEFAULT_PRESS_URL: &str = match option_env!("PLZ_PRESS_URL_BAKED") {
+    Some(url) => url,
+    None => "https://files.project97.life/press",
+};
+
+pub fn press_pages_dir() -> PathBuf {
+    zomboid_home().join("Lua").join("PLZPress").join("pages")
+}
+
+/// The game reads this exact path (PressCore.LAUNCHER_MARKER) to tell a Press-capable launcher from an old one.
+pub fn press_marker_path() -> PathBuf {
+    zomboid_home().join("Lua").join("PLZPress").join("launcher.json")
+}
+
+pub fn press_seq_guard_path() -> PathBuf {
+    app_dir().join("security").join("press-seq.json")
+}
+
+pub const APP_DIR_NAME: &str = "Project97Launcher";
+
+// The launcher this one replaces: its classpath entries still have to be recognised.
+pub const LEGACY_APP_DIR_NAME: &str = "ProjectLifeZoidLauncher";
+
+pub fn app_dir() -> PathBuf {
+    dirs::data_local_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(APP_DIR_NAME)
+}
+
+pub fn patch_dir(build: u64) -> PathBuf {
+    app_dir().join("patch").join(build.to_string())
+}
+
+pub fn films_ledger_path() -> PathBuf {
+    app_dir().join("films").join("installed.json")
+}
+
+pub fn films_seq_guard_path() -> PathBuf {
+    app_dir().join("security").join("films-seq.json")
+}
+
+pub fn backup_dir() -> PathBuf {
+    app_dir().join("backup")
+}
+
+pub fn state_path() -> PathBuf {
+    app_dir().join("state.json")
+}
+
+pub fn rollback_guard_path() -> PathBuf {
+    app_dir().join("security").join("highest-build.json")
+}
+
+pub fn stamp_path() -> PathBuf {
+    app_dir().join("runtime").join("stamp.json")
+}
+
+pub fn workshop_override_pending_path() -> PathBuf {
+    app_dir().join("workshop").join("poc-pending.properties")
+}
+
+pub fn workshop_override_active_path() -> PathBuf {
+    app_dir()
+        .join("runtime")
+        .join("workshop-activation.properties")
+}
+
+pub fn zomboid_home() -> PathBuf {
+    dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("Zomboid")
+}
+
+pub fn server_list_db() -> PathBuf {
+    zomboid_home().join("db").join("ServerListSteam.db")
+}
+
+/// The Tomb body opt-out, shared with the java patch.
+///
+/// zombie.plz.PLZBodyOverride reads this exact path inside ZomboidFileSystem.loadMods.
+/// It resolves it as getCacheDir() + "/Lua", and getCacheDir() is user.home + "/Zomboid",
+/// which is what zomboid_home() is. Keep the two in step or the toggle writes a setting
+/// nothing reads.
+pub fn body_override_path() -> PathBuf {
+    zomboid_home().join("Lua").join("PLZBodyOverride.ini")
+}
+
+pub fn join_intent_path() -> PathBuf {
+    zomboid_home()
+        .join("Lua")
+        .join("PLZLauncher")
+        .join("join.txt")
+}
+
+pub fn join_result_path() -> PathBuf {
+    zomboid_home()
+        .join("Lua")
+        .join("PLZLauncher")
+        .join("result.txt")
+}
+
+/// ProjectLifeZoidCore's PLZCinemaClient reads this exact file to grey out the films it skips.
+pub fn films_choice_path() -> PathBuf {
+    zomboid_home()
+        .join("Lua")
+        .join("PLZLauncher")
+        .join("films.txt")
+}
+
+/// PLZCinemaClient polls this to learn which films finished downloading mid-session.
+pub fn films_ready_path() -> PathBuf {
+    zomboid_home()
+        .join("Lua")
+        .join("PLZLauncher")
+        .join("films-ready.txt")
+}
+
+/// zombie.plz.PLZLiveLink reads the port and key from this exact file.
+pub fn live_link_path() -> PathBuf {
+    zomboid_home()
+        .join("Lua")
+        .join("PLZLauncher")
+        .join("live-link.txt")
+}
+
+pub fn role_path() -> PathBuf {
+    zomboid_home()
+        .join("Lua")
+        .join("PLZLauncher")
+        .join("role.txt")
+}
+
+pub fn launcher_mod_dir() -> PathBuf {
+    zomboid_home().join("mods").join("PLZLauncher").join("42")
+}
+
+/// The game's video/audio settings file.
+///
+/// Core.saveOptions() rewrites this whole file from its in-memory option set every time the
+/// player hits Apply on the options screen, so anything written here only survives if the
+/// game has loaded it first. Write it with the game closed, never while it runs.
+pub fn options_ini_path() -> PathBuf {
+    zomboid_home().join("options.ini")
+}

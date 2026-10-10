@@ -1,0 +1,66 @@
+{
+  "$schema": "./gen/schemas/desktop-schema.json",
+  "productName": "Project 97 Launcher",
+  "mainBinaryName": "project97-launcher",
+  "version": "1.0.0",
+  "identifier": "life.project97.launcher",
+  "build": {
+    "frontendDist": "../ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Project '97 Launcher",
+        "width": 1000,
+        "height": 900,
+        "minWidth": 880,
+        "minHeight": 700,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'",
+      "assetProtocol": { "enable": false },
+      "capabilities": ["default"]
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://files.project97.life/update/latest.json"],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJGQzExREZCNEJDRjdCQjIKUldTeWU4OUwreDNCdnc4RTFYQ1MxWGlDWW1CblBJNi94a3RPalFTZGw3WFQ0eUg1U2p0aHRVTUcK",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
+    "publisher": "RedChili",
+    "copyright": "Copyright (c) 2026 RedChili",
+    "category": "Game",
+    "shortDescription": "Launcher for the Project '97 server",
+    "longDescription": "Installs the Project '97 server patch, launches Project Zomboid through Steam, and restores your game install when you quit.",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["English"],
+        "displayLanguageSelector": false
+      },
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      }
+    }
+  }
+}

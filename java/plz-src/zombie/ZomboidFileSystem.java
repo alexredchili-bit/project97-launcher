@@ -1,0 +1,2015 @@
+package zombie;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileFilter;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.net.URI;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.stream.Stream;
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Unmarshaller;
+import zombie.Lua.LuaEventManager;
+import zombie.core.Core;
+import zombie.core.logger.ExceptionLogger;
+import zombie.core.math.PZMath;
+import zombie.core.textures.Texture;
+import zombie.core.znet.SteamUtils;
+import zombie.core.znet.SteamWorkshop;
+import zombie.debug.DebugType;
+import zombie.debug.LogSeverity;
+import zombie.gameStates.ChooseGameInfo;
+import zombie.iso.IsoWorld;
+import zombie.iso.enums.ChunkGenerationStatus;
+import zombie.iso.sprite.IsoSpriteManager;
+import zombie.modding.ActiveMods;
+import zombie.modding.ActiveModsFile;
+import zombie.network.CoopMaster;
+import zombie.network.GameClient;
+import zombie.network.GameServer;
+import zombie.plz.PLZBodyOverride;
+import zombie.plz.PLZAssetRefusals;
+import zombie.plz.PLZModFolderBaseline;
+import zombie.plz.PLZPrefixRetry;
+import zombie.util.ResettableLazyValue;
+import zombie.util.StringUtils;
+
+public final class ZomboidFileSystem {
+    public static final ZomboidFileSystem instance = new ZomboidFileSystem();
+    private final List<String> loadList = new ArrayList<>();
+    private final Map<String, String> modIdToDir = new HashMap<>();
+    private final Map<String, ChooseGameInfo.Mod> modDirToMod = new HashMap<>();
+    private volatile List<String> modFolders;
+    private List<String> modFoldersOrder;
+    // One pause per retry, growing. A flat 100ms x 3 was tuned for "Steam answered a moment late"
+    // and is nowhere near long enough for the case that actually breaks sessions: Steam
+    // re-indexing after a Workshop item updated, which is exactly when a walk comes back short.
+    // The whole ladder is only ever paid when the walk IS short, and it buys back a session.
+    private static final long[] PLZ_SHORT_WALK_BACKOFF_MS = {250L, 1000L, 3000L};
+    private int plzBestModFolderCount;
+    public final Map<String, String> activeFileMap = new HashMap<>();
+
+    /**
+     * What the mods in PLZBodyOverride put into activeFileMap, so it can be taken back out.
+     *
+     * <p>modId -> list of {relative path, value before that mod wrote it, value it wrote}. Only
+     * the tracked mods are recorded, so this costs a few hundred entries rather than a second
+     * copy of the 70k-file map. Insertion-ordered because the undo runs in REVERSE load order:
+     * two of these mods can touch the same path, and unwinding them out of order would restore
+     * the wrong one.
+     */
+    private final LinkedHashMap<String, ArrayList<String[]>> plzTrackedFiles = new LinkedHashMap<>();
+
+    /** The answer the last loadMods acted on, or null before the first one in this process. */
+    private Boolean plzBodyOverrideApplied;
+    private final Set<String> allAbsolutePaths = new HashSet<>();
+    private final ResettableLazyValue<List<Path>> allowedPrefixes = new ResettableLazyValue<>(() -> {
+        List<String> knownBases = new ArrayList<>();
+        instance.getAllModFolders(knownBases);
+        knownBases.add(instance.getCacheDir());
+        knownBases.add(instance.base.absoluteFile.getAbsolutePath());
+        return knownBases.stream().map(ZomboidFileSystem::normalizeToPath).toList().reversed();
+    });
+    public final ZomboidFileSystem.PZFolder base = new ZomboidFileSystem.PZFolder();
+    private final ZomboidFileSystem.PZFolder workdir = new ZomboidFileSystem.PZFolder();
+    private File localWorkdir;
+    private final ZomboidFileSystem.PZFolder anims = new ZomboidFileSystem.PZFolder();
+    private final ZomboidFileSystem.PZFolder animsX = new ZomboidFileSystem.PZFolder();
+    private final ZomboidFileSystem.PZFolder animSets = new ZomboidFileSystem.PZFolder();
+    private final ZomboidFileSystem.PZFolder actiongroups = new ZomboidFileSystem.PZFolder();
+    private File cacheDir;
+    private final ConcurrentHashMap<String, String> relativeMap = new ConcurrentHashMap<>();
+    public final ThreadLocal<Boolean> ignoreActiveFileMap = ThreadLocal.withInitial(() -> Boolean.FALSE);
+    private final ConcurrentHashMap<String, URI> canonicalUriMap = new ConcurrentHashMap<>();
+    private final List<String> mods = new ArrayList<>();
+    private final Set<String> loadedPacks = new HashSet<>();
+    private FileGuidTable fileGuidTable;
+    private boolean fileGuidTableWatcherActive;
+    private final PredicatedFileWatcher modFileWatcher = new PredicatedFileWatcher(this::isModFile, this::onModFileChanged);
+    private final Set<String> watchedModFolders = new HashSet<>();
+    private final Object modFoldersLock = new Object();
+    private long modsChangedTime;
+    private static String startupTimeStamp;
+    private static final SimpleDateFormat s_dateTimeSdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm");
+    private static final SimpleDateFormat s_dateOnlySdf = new SimpleDateFormat("yyyy-MM-dd");
+
+    private ZomboidFileSystem() {
+    }
+
+    public boolean isInitialized() {
+        return this.base.absoluteFile != null;
+    }
+
+    public void init() throws IOException {
+        this.base.set(new File("./"));
+        this.workdir.set(new File(this.base.canonicalFile, "media"));
+        this.localWorkdir = this.base.canonicalFile.toPath().relativize(this.workdir.canonicalFile.toPath()).toFile();
+        this.anims.set(new File(this.workdir.canonicalFile, "anims"));
+        this.animsX.set(new File(this.workdir.canonicalFile, "anims_X"));
+        this.animSets.set(new File(this.workdir.canonicalFile, "AnimSets"));
+        this.actiongroups.set(new File(this.workdir.canonicalFile, "actiongroups"));
+        this.searchFolders(this.workdir.canonicalFile);
+
+        for (int n = 0; n < this.loadList.size(); n++) {
+            String rel = this.getRelativeFile(this.loadList.get(n));
+            File file = new File(this.loadList.get(n)).getAbsoluteFile();
+            String abs = file.getAbsolutePath();
+            if (file.isDirectory()) {
+                abs = abs + File.separator;
+            }
+
+            this.activeFileMap.put(rel.toLowerCase(Locale.ENGLISH), abs);
+            this.allAbsolutePaths.add(abs);
+        }
+
+        this.loadList.clear();
+    }
+
+    public File getCanonicalFile(File parent, String child) {
+        if (!parent.isDirectory()) {
+            return new File(parent, child);
+        }
+
+        File[] files = parent.listFiles((dir, name) -> name.equalsIgnoreCase(child));
+        return files != null && files.length != 0 ? files[0] : new File(parent, child);
+    }
+
+    public String getGameModeCacheDir() {
+        if (Core.gameMode == null) {
+            Core.getInstance().setGameMode("Sandbox");
+        }
+
+        String cacheDirRoot = this.getSaveDir();
+        return cacheDirRoot + File.separator + Core.gameMode;
+    }
+
+    public String getCurrentSaveDir() {
+        return this.getGameModeCacheDir() + File.separator + Core.gameSaveWorld;
+    }
+
+    public String getFileNameInCurrentSave(String fileName) {
+        return this.getCurrentSaveDir() + File.separator + fileName;
+    }
+
+    public String getFileNameInCurrentSave(String subDir, String fileName) {
+        return this.getFileNameInCurrentSave(subDir + File.separator + fileName);
+    }
+
+    public String getFileNameInCurrentSave(String subDir1, String subDir2, String fileName) {
+        return this.getFileNameInCurrentSave(subDir1 + File.separator + subDir2 + File.separator + fileName);
+    }
+
+    public File getFileInCurrentSave(String fileName) {
+        return new File(this.getFileNameInCurrentSave(fileName));
+    }
+
+    public File getFileInCurrentSave(String subDir, String fileName) {
+        return new File(this.getFileNameInCurrentSave(subDir, fileName));
+    }
+
+    public File getFileInCurrentSave(String subDir1, String subDir2, String fileName) {
+        return new File(this.getFileNameInCurrentSave(subDir1, subDir2, fileName));
+    }
+
+    public String getSaveDir() {
+        String savesDir = this.getCacheDirSub("Saves");
+        ensureFolderExists(savesDir);
+        return savesDir;
+    }
+
+    public String getSaveDirSub(String subPath) {
+        return this.getSaveDir() + File.separator + subPath;
+    }
+
+    public String getScreenshotDir() {
+        String dir = this.getCacheDirSub("Screenshots");
+        ensureFolderExists(dir);
+        return dir;
+    }
+
+    public String getScreenshotDirSub(String subPath) {
+        return this.getScreenshotDir() + File.separator + subPath;
+    }
+
+    public void setCacheDir(String dir) {
+        dir = dir.replace("/", File.separator);
+        this.cacheDir = new File(dir).getAbsoluteFile();
+        ensureFolderExists(this.cacheDir);
+    }
+
+    public String getCacheDir() {
+        if (this.cacheDir == null) {
+            String cacheDirRoot = System.getProperty("deployment.user.cachedir");
+            if (cacheDirRoot == null || System.getProperty("os.name").startsWith("Win")) {
+                cacheDirRoot = System.getProperty("user.home");
+            }
+
+            String cacheDirPath = cacheDirRoot + File.separator + "Zomboid";
+            this.setCacheDir(cacheDirPath);
+        }
+
+        return this.cacheDir.getPath();
+    }
+
+    public String getCacheDirSub(String subPath) {
+        return this.getCacheDir() + File.separator + subPath;
+    }
+
+    public String getMessagingDir() {
+        String messagingDir = this.getCacheDirSub("messaging");
+        ensureFolderExists(messagingDir);
+        return messagingDir;
+    }
+
+    public String getMessagingDirSub(String subPath) {
+        return this.getMessagingDir() + File.separator + subPath;
+    }
+
+    public URI getMediaLowercaseURI() {
+        return this.workdir.lowercaseUri;
+    }
+
+    public File getMediaRootFile() {
+        assert this.workdir.canonicalFile != null;
+        return this.workdir.canonicalFile;
+    }
+
+    public String getMediaRootPath() {
+        return this.workdir.canonicalFile.getPath();
+    }
+
+    public File getMediaFile(String subPath) {
+        assert this.workdir.canonicalFile != null;
+        return new File(this.workdir.canonicalFile, subPath);
+    }
+
+    public String getMediaPath(String subPath) {
+        return this.getMediaFile(subPath).getPath();
+    }
+
+    public String getAbsoluteWorkDir() {
+        return this.workdir.canonicalFile.getPath();
+    }
+
+    public String getLocalWorkDir() {
+        return this.localWorkdir.getPath();
+    }
+
+    public String getLocalWorkDirSub(String subPath) {
+        return this.getLocalWorkDir() + File.separator + subPath;
+    }
+
+    public File getAnimsXFile() {
+        return this.animsX.canonicalFile;
+    }
+
+    public String getAnimSetsPath() {
+        return this.animSets.canonicalFile.getPath();
+    }
+
+    public String getActionGroupsPath() {
+        return this.actiongroups.canonicalFile.getPath();
+    }
+
+    public static boolean ensureFolderExists(String path) {
+        return ensureFolderExists(new File(path).getAbsoluteFile());
+    }
+
+    public static boolean ensureFolderExists(File directory) {
+        return directory.isDirectory() || directory.mkdirs();
+    }
+
+    public void searchFolders(File fo) {
+        if (!GameServer.server) {
+            Thread.yield();
+            Core.getInstance().DoFrameReady();
+        }
+
+        if (fo.isDirectory()) {
+            String path = fo.getAbsolutePath().replace("\\", "/").replace("./", "");
+            if (path.contains("media/maps/")) {
+                this.loadList.add(path);
+            }
+
+            String[] internalNames = fo.list();
+
+            for (int i = 0; i < internalNames.length; i++) {
+                this.searchFolders(new File(fo.getAbsolutePath() + File.separator + internalNames[i]));
+            }
+        } else {
+            this.loadList.add(fo.getAbsolutePath().replace("\\", "/").replace("./", ""));
+        }
+    }
+
+    public Object[] getAllPathsContaining(String str) {
+        ArrayList<String> loadList = new ArrayList<>();
+
+        for (Entry<String, String> entry : this.activeFileMap.entrySet()) {
+            if (entry.getKey().contains(str)) {
+                loadList.add(entry.getValue());
+            }
+        }
+
+        return loadList.toArray();
+    }
+
+    public Object[] getAllPathsContaining(String str, String str2) {
+        ArrayList<String> loadList = new ArrayList<>();
+
+        for (Entry<String, String> entry : this.activeFileMap.entrySet()) {
+            if (entry.getKey().contains(str) && entry.getKey().contains(str2)) {
+                loadList.add(entry.getValue());
+            }
+        }
+
+        return loadList.toArray();
+    }
+
+    public synchronized String getString(String str) {
+        if (this.ignoreActiveFileMap.get()) {
+            return str;
+        }
+
+        String lower = str.toLowerCase(Locale.ENGLISH);
+        String relative = this.relativeMap.get(lower);
+        if (relative != null) {
+            lower = relative;
+        } else {
+            String ostr = lower;
+            String var6 = this.getRelativeFile(str);
+            lower = var6.toLowerCase(Locale.ENGLISH);
+            this.relativeMap.put(ostr, lower);
+        }
+
+        String absolute = this.activeFileMap.get(lower);
+        return absolute != null ? absolute : str;
+    }
+
+    public synchronized String getDirectoryString(String str) {
+        String absPath = this.getString(str);
+        if (absPath != str) {
+            return absPath;
+        } else {
+            return str.endsWith("/") ? this.getString(str.substring(0, str.length() - 1)) : this.getString(str + "/");
+        }
+    }
+
+    public synchronized boolean isKnownFile(String str) {
+        if (this.allAbsolutePaths.contains(str)) {
+            return true;
+        }
+
+        String lower = str.toLowerCase(Locale.ENGLISH);
+        String relative = this.relativeMap.get(lower);
+        if (relative != null) {
+            lower = relative;
+        } else {
+            String ostr = lower;
+            String var6 = this.getRelativeFile(str);
+            lower = var6.toLowerCase(Locale.ENGLISH);
+            this.relativeMap.put(ostr, lower);
+        }
+
+        String absolute = this.activeFileMap.get(lower);
+        return absolute != null;
+    }
+
+    public String getAbsolutePath(String rel) {
+        String lower = rel.toLowerCase(Locale.ENGLISH);
+        return this.activeFileMap.get(lower);
+    }
+
+    public void Reset() {
+        this.loadList.clear();
+        this.activeFileMap.clear();
+        this.allAbsolutePaths.clear();
+        this.canonicalUriMap.clear();
+        this.modIdToDir.clear();
+        this.modDirToMod.clear();
+        this.mods.clear();
+        this.plzTrackedFiles.clear();
+        ActiveMods.Reset();
+        if (this.fileGuidTable != null) {
+            this.fileGuidTable.clear();
+            this.fileGuidTable = null;
+        }
+
+        this.resetModFolders();
+    }
+
+    public File getCanonicalFile(File file) {
+        try {
+            return file.getCanonicalFile();
+        } catch (Exception e) {
+            return file.getAbsoluteFile();
+        }
+    }
+
+    public File getCanonicalFile(String path) {
+        return this.getCanonicalFile(new File(path));
+    }
+
+    public String getCanonicalPath(File file) {
+        try {
+            return file.getCanonicalPath();
+        } catch (Exception e) {
+            return file.getAbsolutePath();
+        }
+    }
+
+    public String getCanonicalPath(String path) {
+        return this.getCanonicalPath(new File(path));
+    }
+
+    public URI getCanonicalURI(String path) {
+        URI uri = this.canonicalUriMap.get(path);
+        if (uri == null) {
+            uri = this.getCanonicalFile(path).toURI();
+            this.canonicalUriMap.put(path, uri);
+        }
+
+        return uri;
+    }
+
+    // EVERY read and write of modFolders holds modFoldersLock. Getting only some of them under it
+    // is worse than none: a walk running inside getAllModFolders holds the lock for the length of
+    // the enumeration, so an unlocked null written meanwhile is simply overwritten when the walk
+    // publishes - the reset is lost, and the stale list stays memoised until something resets it
+    // again. Reset(), update() and isModFile() were each missing it.
+    //
+    // A caller that is already inside a retry does NOT start a new retry budget; see
+    // PLZPrefixRetry.newSession.
+    public void resetModFolders() {
+        synchronized (this.modFoldersLock) {
+            this.modFolders = null;
+        }
+
+        this.allowedPrefixes.reset();
+        PLZPrefixRetry.newSession();
+    }
+
+    public void getInstalledItemModsFolders(List<String> out) {
+        if (SteamUtils.isSteamModeEnabled()) {
+            String[] folders = SteamWorkshop.instance.GetInstalledItemFolders();
+            if (folders != null) {
+                for (String folder : folders) {
+                    File file = new File(folder + File.separator + "mods");
+                    if (file.exists()) {
+                        out.add(file.getAbsolutePath());
+                    }
+                }
+            }
+        }
+    }
+
+    public void getStagedItemModsFolders(List<String> out) {
+        if (SteamUtils.isSteamModeEnabled()) {
+            List<String> folders = SteamWorkshop.instance.getStageFolders();
+
+            for (int i = 0; i < folders.size(); i++) {
+                File file = new File(folders.get(i) + File.separator + "Contents" + File.separator + "mods");
+                if (file.exists()) {
+                    out.add(file.getAbsolutePath());
+                }
+            }
+        }
+    }
+
+    public String getModVersionDirName(Path modDir) {
+        int gameVersion = Core.getInstance().getGameVersion().getInt();
+        String versionDirName = ChooseGameInfo.getMinRequiredVersion().toString();
+        int bestVersion = ChooseGameInfo.getMinRequiredVersion().getInt();
+        String[] dirFileNames = modDir.toFile().list();
+        if (dirFileNames != null) {
+            for (String name : dirFileNames) {
+                int version = this.getGameVersionIntFromName(name);
+                if (version >= bestVersion && version <= gameVersion) {
+                    versionDirName = name;
+                    bestVersion = version;
+                }
+            }
+        }
+
+        return versionDirName;
+    }
+
+    private void getAllModFoldersAux(String folder, List<String> out) {
+        Path dir = FileSystems.getDefault().getPath(folder);
+        if (Files.exists(dir)) {
+            try (DirectoryStream<Path> dstrm = Files.newDirectoryStream(dir, x$0 -> Files.isDirectory(x$0))) {
+                for (Path path : dstrm) {
+                    if (path.getFileName().toString().equalsIgnoreCase("examplemod")) {
+                        DebugType.Mod.println("refusing to list " + path.getFileName());
+                    } else {
+                        String commonDirName = "common";
+                        String versionDirName = this.getModVersionDirName(path);
+                        if (Files.exists(path.resolve("common", "mod.info")) || Files.exists(path.resolve(versionDirName, "mod.info"))) {
+                            String absolutePath = path.toAbsolutePath().toString();
+                            Path commonDirMedia = path.resolve("common", "media");
+                            Path versionDirMedia = path.resolve(versionDirName, "media");
+                            if (!this.watchedModFolders.contains(absolutePath)) {
+                                this.watchedModFolders.add(absolutePath);
+                                DebugFileWatcher.instance.addDirectory(absolutePath);
+                                if (Files.exists(commonDirMedia)) {
+                                    DebugFileWatcher.instance.addDirectoryRecurse(commonDirMedia.toAbsolutePath().toString());
+                                }
+
+                                if (Files.exists(versionDirMedia)) {
+                                    DebugFileWatcher.instance.addDirectoryRecurse(versionDirMedia.toAbsolutePath().toString());
+                                }
+                            }
+
+                            out.add(absolutePath);
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                DebugType.General.printException(ex, LogSeverity.Error);
+            }
+        }
+    }
+
+    public void setModFoldersOrder(String s) {
+        this.modFoldersOrder = new ArrayList<>(Arrays.asList(s.split(",")));
+    }
+
+    // PLZ: a private lock, not 42.21's synchronized method: the walk below can sleep for seconds and getString/isKnownFile share this monitor.
+    public void getAllModFolders(List<String> out) {
+        List<String> folders;
+        synchronized (this.modFoldersLock) {
+            if (this.modFolders == null) {
+                this.modFolders = this.plzWalkModFoldersChecked();
+            }
+
+            folders = this.modFolders;
+        }
+
+        out.clear();
+        out.addAll(folders);
+    }
+
+    // ConnectToServerState calls resetModFolders() on every connect, so this walk runs again each
+    // time a player joins, and each run is a fresh chance for Steam to answer before its Workshop
+    // cache is warm. A short answer is invisible on its own - the mods still load, only the assets
+    // under the folders that went missing are refused - so a regression against the best answer
+    // this process has seen is worth walking again, and worth saying out loud if it sticks.
+    //
+    // Short is measured against a high-water mark rather than the previous walk, because a genuine
+    // unsubscribe also shortens the list. Retrying an unsubscribe costs 300ms once; taking a raced
+    // walk on trust costs the player their session.
+    private ArrayList<String> plzWalkModFoldersChecked() {
+        ArrayList<String> built = this.plzWalkModFolders();
+
+        // The mark comes from PLZModFolderBaseline, not from a field that starts at zero, so the
+        // FIRST walk of a process is checked as well. That walk is the one that matters: nothing
+        // is smaller than zero, so a short answer there used to be accepted in silence and become
+        // the session's own baseline, and every later walk in the run then matched it and looked
+        // healthy. It is also the likeliest walk to be short, because a launch after a crash or
+        // after a Workshop update is when Steam's cache is coldest.
+        int best = Math.max(this.plzBestModFolderCount, PLZModFolderBaseline.best());
+
+        for (int attempt = 0; attempt < PLZ_SHORT_WALK_BACKOFF_MS.length && built.size() < best; attempt++) {
+            DebugType.Mod
+                .warn(
+                    "PLZ: mod folder walk returned " + built.size() + ", best known is " + best + "; walking again in "
+                        + PLZ_SHORT_WALK_BACKOFF_MS[attempt] + "ms"
+                );
+
+            try {
+                Thread.sleep(PLZ_SHORT_WALK_BACKOFF_MS[attempt]);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+
+            built = this.plzWalkModFolders();
+        }
+
+        if (built.size() < best) {
+            // An unsubscribe shortens the list for good, so a mark that can only ever rise would
+            // charge that player the whole backoff on every connect forever. Coming down takes
+            // several separate launches, which a transient cold cache does not survive.
+            if (PLZModFolderBaseline.recordShort(built.size())) {
+                this.plzBestModFolderCount = built.size();
+                DebugType.Mod
+                    .warn(
+                        "PLZ: mod folder walk has returned " + built.size()
+                            + " across several launches; taking it as the new baseline, which is what an unsubscribe looks like."
+                    );
+            } else {
+                this.plzBestModFolderCount = best;
+                DebugType.Mod
+                    .error(
+                        "PLZ: mod folder walk is still short (" + built.size() + " of " + best
+                            + "). Workshop assets under the missing folders will be refused until it is walked again."
+                    );
+            }
+        } else {
+            this.plzBestModFolderCount = built.size();
+            PLZModFolderBaseline.recordGood(built.size());
+        }
+
+        return built;
+    }
+
+    private ArrayList<String> plzWalkModFolders() {
+        ArrayList<String> built = new ArrayList<>();
+        if (this.modFoldersOrder == null) {
+            this.setModFoldersOrder("workshop,steam,mods");
+        }
+
+        List<String> modsFolders = new ArrayList<>();
+
+        for (int i = 0; i < this.modFoldersOrder.size(); i++) {
+            String s = this.modFoldersOrder.get(i);
+            if ("workshop".equals(s)) {
+                this.getStagedItemModsFolders(modsFolders);
+            }
+
+            if ("steam".equals(s)) {
+                this.getInstalledItemModsFolders(modsFolders);
+            }
+
+            if ("mods".equals(s)) {
+                File file = new File(instance.getCacheDirSub("mods"));
+                if (!file.exists()) {
+                    file.mkdirs();
+                }
+
+                modsFolders.add(file.getAbsolutePath());
+            }
+        }
+
+        for (int j = 0; j < modsFolders.size(); j++) {
+            String folder = modsFolders.get(j);
+            if (!this.watchedModFolders.contains(folder)) {
+                this.watchedModFolders.add(folder);
+                DebugFileWatcher.instance.addDirectory(folder);
+            }
+
+            this.getAllModFoldersAux(folder, built);
+        }
+
+        DebugFileWatcher.instance.add(this.modFileWatcher);
+        return built;
+    }
+
+    public int getGameVersionIntFromName(String name) {
+        if (name == null) {
+            return 0;
+        } else {
+            String[] parts = name.split("\\.");
+            if (parts.length == 1) {
+                return PZMath.tryParseInt(parts[0], 0) * 1000;
+            } else {
+                return parts.length >= 2 ? PZMath.tryParseInt(parts[0], 0) * 1000 + Math.min(PZMath.tryParseInt(parts[1], 0), 999) : 0;
+            }
+        }
+    }
+
+    public ArrayList<ChooseGameInfo.Mod> getWorkshopItemMods(long itemID) {
+        ArrayList<ChooseGameInfo.Mod> mods = new ArrayList<>();
+        if (!SteamUtils.isSteamModeEnabled()) {
+            return mods;
+        }
+
+        String folder = SteamWorkshop.instance.GetItemInstallFolder(itemID);
+        if (folder == null) {
+            return mods;
+        }
+
+        File file = new File(folder + File.separator + "mods");
+        if (file.exists() && file.isDirectory()) {
+            File[] files = file.listFiles();
+
+            for (File file2 : files) {
+                if (file2.isDirectory()) {
+                    ChooseGameInfo.Mod modInfo = ChooseGameInfo.readModInfo(file2.getAbsolutePath());
+                    if (modInfo != null) {
+                        mods.add(modInfo);
+                    }
+                }
+            }
+
+            return mods;
+        } else {
+            return mods;
+        }
+    }
+
+    public void setModIdToDir(String id, String dir) {
+        this.modIdToDir.putIfAbsent(id, dir);
+    }
+
+    public ChooseGameInfo.Mod searchForModInfo(File path, String modSearched, ArrayList<ChooseGameInfo.Mod> mods) {
+        if (path.isDirectory()) {
+            String[] internalNames = path.list();
+            if (internalNames == null) {
+                return null;
+            }
+
+            for (int i = 0; i < internalNames.length; i++) {
+                File file = new File(path.getAbsolutePath() + File.separator + internalNames[i]);
+                ChooseGameInfo.Mod result = this.searchForModInfo(file, modSearched, mods);
+                if (result != null) {
+                    return result;
+                }
+            }
+        } else if (path.getAbsolutePath().endsWith("mod.info")) {
+            ChooseGameInfo.Mod mod = ChooseGameInfo.readModInfo(path.getAbsoluteFile().getParent());
+            if (mod == null) {
+                return null;
+            }
+
+            if (!mod.getId().equals("\\")) {
+                this.modIdToDir.put(mod.getId(), mod.getDir());
+                mods.add(mod);
+            }
+
+            if (mod.getId().equals(modSearched)) {
+                return mod;
+            }
+        }
+
+        return null;
+    }
+
+    public void loadMod(String modId) {
+        if (this.getModDir(modId) != null) {
+            if (CoopMaster.instance != null) {
+                CoopMaster.instance.update();
+            }
+
+            DebugType.Mod.println("loading " + modId);
+            boolean plzTrack = !GameServer.server && PLZBodyOverride.isTracked(modId);
+            ChooseGameInfo.Mod mod = this.getModInfoForDir(this.getModDir(modId));
+            this.loadList.clear();
+            File modPathbase = new File(mod.getCommonDir().toLowerCase(Locale.ENGLISH));
+            URI modPathbaseURI = modPathbase.toURI();
+            this.searchFolders(new File(mod.getCommonDir()));
+
+            for (int n = 0; n < this.loadList.size(); n++) {
+                String rel = this.getRelativeFile(modPathbaseURI, this.loadList.get(n));
+                rel = rel.toLowerCase(Locale.ENGLISH);
+                if (this.activeFileMap.containsKey(rel) && !rel.endsWith("mod.info") && !rel.endsWith("poster.png")) {
+                    DebugType.Mod.println("mod \"" + modId + "\" overrides " + rel);
+                }
+
+                String absPath = new File(this.loadList.get(n)).getAbsolutePath();
+                if (plzTrack) {
+                    this.plzRecord(modId, rel, this.activeFileMap.get(rel), absPath);
+                }
+
+                this.activeFileMap.put(rel, absPath);
+                this.allAbsolutePaths.add(absPath);
+            }
+
+            this.loadList.clear();
+            modPathbase = new File(mod.getVersionDir().toLowerCase(Locale.ENGLISH));
+            modPathbaseURI = modPathbase.toURI();
+            this.searchFolders(new File(mod.getVersionDir()));
+
+            for (int n = 0; n < this.loadList.size(); n++) {
+                String rel = this.getRelativeFile(modPathbaseURI, this.loadList.get(n));
+                rel = rel.toLowerCase(Locale.ENGLISH);
+                if (this.activeFileMap.containsKey(rel) && !rel.endsWith("mod.info") && !rel.endsWith("poster.png")) {
+                    DebugType.Mod.println("mod \"" + modId + "\" overrides " + rel);
+                }
+
+                String absPath = new File(this.loadList.get(n)).getAbsolutePath();
+                if (plzTrack) {
+                    this.plzRecord(modId, rel, this.activeFileMap.get(rel), absPath);
+                }
+
+                this.activeFileMap.put(rel, absPath);
+                this.allAbsolutePaths.add(absPath);
+            }
+
+            this.loadList.clear();
+        }
+    }
+
+    private ArrayList<String> readLoadedDotTxt() {
+        String path = Core.getMyDocumentFolder() + File.separator + "mods" + File.separator + "loaded.txt";
+        File file = new File(path);
+        if (!file.exists()) {
+            return null;
+        }
+
+        ArrayList<String> modIDs = new ArrayList<>();
+
+        try (
+            FileReader fr = new FileReader(path);
+            BufferedReader br = new BufferedReader(fr);
+        ) {
+            for (String str = br.readLine(); str != null; str = br.readLine()) {
+                str = str.trim();
+                if (!str.isEmpty()) {
+                    modIDs.add(str);
+                }
+            }
+        } catch (Exception e) {
+            ExceptionLogger.logException(e);
+            modIDs = null;
+        }
+
+        try {
+            file.delete();
+        } catch (Exception e) {
+            ExceptionLogger.logException(e);
+        }
+
+        return modIDs;
+    }
+
+    private ActiveMods readDefaultModsTxt() {
+        ActiveMods activeMods = ActiveMods.getById("default");
+        ArrayList<String> modIDs = this.readLoadedDotTxt();
+        if (modIDs != null) {
+            activeMods.getMods().addAll(modIDs);
+            this.saveModsFile();
+        }
+
+        activeMods.clear();
+        String path = Core.getMyDocumentFolder() + File.separator + "mods" + File.separator + "default.txt";
+
+        try {
+            ActiveModsFile activeModsFile = new ActiveModsFile();
+            if (activeModsFile.read(path, activeMods)) {
+            }
+        } catch (Exception e) {
+            ExceptionLogger.logException(e);
+        }
+
+        return activeMods;
+    }
+
+    public void loadMods(String activeMods) {
+        if (Core.optionModsEnabled) {
+            if (GameClient.client) {
+                ArrayList<String> toLoad = new ArrayList<>();
+                this.loadTranslationMods(toLoad);
+                toLoad.addAll(GameClient.instance.serverMods);
+                this.loadMods(toLoad);
+            } else {
+                ActiveMods activeMods1 = ActiveMods.getById(activeMods);
+                if (!"default".equalsIgnoreCase(activeMods)) {
+                    ActiveMods.setLoadedMods(activeMods1);
+                    this.loadMods(activeMods1.getMods());
+                } else {
+                    try {
+                        activeMods1 = this.readDefaultModsTxt();
+                        activeMods1.checkMissingMods();
+                        activeMods1.checkMissingMaps();
+                        ActiveMods.setLoadedMods(activeMods1);
+                        this.loadMods(activeMods1.getMods());
+                    } catch (Exception e) {
+                        ExceptionLogger.logException(e);
+                    }
+                }
+            }
+        }
+    }
+
+    private boolean isValidTranslationModSubDir(ZomboidFileSystem.PZFolder pzFolder) {
+        this.loadList.clear();
+        this.searchFolders(pzFolder.canonicalFile);
+
+        for (String path : this.loadList) {
+            String rel = this.getRelativeFile(pzFolder.lowercaseUri, path);
+            if (rel.startsWith("media/")) {
+                if (!rel.startsWith("media/lua/shared/translate/")) {
+                    return false;
+                }
+
+                if (!rel.endsWith(".txt") && !rel.endsWith(".json")) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private boolean isTranslationMod(String modId) {
+        ChooseGameInfo.Mod info = ChooseGameInfo.getAvailableModDetails(modId);
+        return info == null ? false : this.isValidTranslationModSubDir(info.baseFile.common) && this.isValidTranslationModSubDir(info.baseFile.version);
+    }
+
+    private void loadTranslationMods(List<String> toLoad) {
+        if (GameClient.client) {
+            ActiveMods activeMods = this.readDefaultModsTxt();
+            List<String> mods = new ArrayList<>();
+            if (this.loadModsAux(activeMods.getMods(), mods) == null) {
+                for (String modId : mods) {
+                    if (this.isTranslationMod(modId)) {
+                        DebugType.Mod.println("loading translation mod \"" + modId + "\"");
+                        if (!toLoad.contains(modId)) {
+                            toLoad.add(modId);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private String loadModAndRequired(String modId, List<String> ordered) {
+        if (modId.isEmpty()) {
+            return null;
+        }
+
+        if (modId.equalsIgnoreCase("examplemod")) {
+            DebugType.Mod.warn("refusing to load " + modId);
+            return null;
+        }
+
+        if (ordered.contains(modId)) {
+            return null;
+        }
+
+        ChooseGameInfo.Mod info = ChooseGameInfo.getAvailableModDetails(modId);
+        if (info == null) {
+            if (GameServer.server) {
+                GameServer.ServerMods.remove(modId);
+            }
+
+            DebugType.Mod.warn("required mod \"" + modId + "\" not found");
+            return modId;
+        } else {
+            if (info.getRequire() != null) {
+                String reqId = this.loadModsAux(info.getRequire(), ordered);
+                if (reqId != null) {
+                    return reqId;
+                }
+            }
+
+            ordered.add(modId);
+            return null;
+        }
+    }
+
+    public String loadModsAux(List<String> toLoad, List<String> ordered) {
+        for (String modId : toLoad) {
+            String failId = this.loadModAndRequired(modId, ordered);
+            if (failId != null) {
+                return failId;
+            }
+        }
+
+        return null;
+    }
+
+    public void loadMods(List<String> toLoad) {
+        this.mods.clear();
+        this.plzTrackedFiles.clear();
+
+        for (String modId : toLoad) {
+            this.loadModAndRequired(modId, this.mods);
+        }
+
+        for (String modId : this.mods) {
+            this.loadMod(modId);
+        }
+
+        this.plzApplyBodyOverride();
+    }
+
+    /**
+     * Honour the player's body-mod choice, once the whole mod list is in the map.
+     *
+     * <p>Here rather than anywhere earlier because a mod that loads AFTER one of the body mods
+     * and overrides the same file has to be allowed to win first; only then is it possible to
+     * say which paths the body mods are actually still holding. Everything downstream reads
+     * activeFileMap and so needs no idea a choice was made.
+     */
+    private void plzApplyBodyOverride() {
+        if (GameServer.server) {
+            return;
+        }
+
+        boolean enabled = PLZBodyOverride.isEnabled();
+        if (!enabled) {
+            int undone = this.plzUndoTrackedMods();
+            DebugType.Mod.println("PLZ: body mods off by client choice; " + undone + " file override(s) undone");
+        }
+
+        // Textures are cached by NAME in Texture.s_sharedTextureTable and Core.ResetLua never
+        // clears it, so a reconnect inside one session would otherwise keep whichever body skins
+        // were resolved first. Only worth the hitch when the answer actually moved - on the first
+        // loadMods of a process nothing body-related has been asked for yet. setTexturePackLookup,
+        // not onTexturePacksChanged: the latter empties the caches without rebuilding
+        // GameWindow.texturePackTextures, and every name then misses and lands in nullTextures.
+        if (this.plzBodyOverrideApplied != null && this.plzBodyOverrideApplied != enabled) {
+            GameWindow.setTexturePackLookup();
+            DebugType.Mod.println("PLZ: body override changed to " + enabled + "; texture caches dropped");
+        }
+
+        this.plzBodyOverrideApplied = enabled;
+    }
+
+    private void plzRecord(String modId, String rel, String before, String after) {
+        if (!plzIsRevertable(rel)) {
+            return;
+        }
+
+        this.plzTrackedFiles.computeIfAbsent(modId, id -> new ArrayList<>()).add(new String[] { rel, before, after });
+    }
+
+    /**
+     * The only files the body opt-out is allowed to take back out of activeFileMap.
+     *
+     * <p>The multiplayer Lua/script checksum is computed over the files resolved THROUGH
+     * activeFileMap, so anything removed here that the server still counts diverges the client's
+     * total and the anti-cheat kicks them: `lua=none script=none` in the server log, then
+     * ChecksumPacket.parseServer scheduling a disconnect. That is not a theoretical risk - it
+     * shipped. TombBodyCustom is the only one of the four tracked mods that carries Lua at all (3
+     * .lua and 3 scripts against none in the other three), which is exactly why a feature that
+     * looks purely cosmetic managed to break joining.
+     *
+     * <p>An ALLOWLIST rather than a denylist of lua/scripts/anims, deliberately: a denylist has to
+     * name every checksummed category correctly forever, and silently stops protecting the moment
+     * one is missed or added. This names the two things a body mod actually replaces, so anything
+     * unforeseen is left alone by default and the checksum stays byte-identical.
+     */
+    private static boolean plzIsRevertable(String rel) {
+        return rel.startsWith("media/models_x/") || rel.startsWith("media/models/") || rel.startsWith("media/textures/");
+    }
+
+    /**
+     * Undo the tracked mods' writes, newest first, and report how many entries moved.
+     *
+     * <p>A record is skipped when the path is no longer holding the value that mod wrote: some
+     * later mod overrode the same file, and it would still have done so had the body mod never
+     * loaded. Restoring the remembered predecessor there would take the later mod out with it -
+     * TombBodyCompat and several clothing mods do collide on the same vanilla meshes.
+     */
+    private int plzUndoTrackedMods() {
+        ArrayList<String> order = new ArrayList<>(this.plzTrackedFiles.keySet());
+        int undone = 0;
+
+        for (int i = order.size() - 1; i >= 0; i--) {
+            ArrayList<String[]> records = this.plzTrackedFiles.get(order.get(i));
+
+            for (int n = records.size() - 1; n >= 0; n--) {
+                String[] record = records.get(n);
+                if (!record[2].equals(this.activeFileMap.get(record[0]))) {
+                    continue;
+                }
+
+                if (record[1] == null) {
+                    this.activeFileMap.remove(record[0]);
+                } else {
+                    this.activeFileMap.put(record[0], record[1]);
+                }
+
+                undone++;
+            }
+        }
+
+        return undone;
+    }
+
+    public List<String> getModIDs() {
+        return this.mods;
+    }
+
+    public String getModDir(String modId) {
+        return this.modIdToDir.get(modId);
+    }
+
+    public ChooseGameInfo.Mod getModInfoForDir(String modDir) {
+        ChooseGameInfo.Mod modInfo = this.modDirToMod.get(modDir);
+        if (modInfo == null) {
+            modInfo = new ChooseGameInfo.Mod(modDir);
+            this.modDirToMod.put(modDir, modInfo);
+        }
+
+        return modInfo;
+    }
+
+    public ChunkGenerationStatus isModded(String path) {
+        for (String lookup : this.modDirToMod.keySet()) {
+            if (path.startsWith(lookup)) {
+                return ChunkGenerationStatus.MODDED;
+            }
+        }
+
+        return ChunkGenerationStatus.CORE;
+    }
+
+    public String getRelativeFile(File file) {
+        return this.getRelativeFile(this.base.lowercaseUri, file.getAbsolutePath());
+    }
+
+    public String getRelativeFile(String string) {
+        return this.getRelativeFile(this.base.lowercaseUri, string);
+    }
+
+    public String getRelativeFile(URI root, File file) {
+        return this.getRelativeFile(root, file.getAbsolutePath());
+    }
+
+    public String getRelativeFile(URI root, String string) {
+        String absolutePath = new File(string).getAbsolutePath();
+        URI uri = new File(absolutePath.toLowerCase(Locale.ENGLISH)).toURI();
+        URI rel = root.relativize(uri);
+        if (rel.equals(uri)) {
+            return string;
+        }
+
+        String relPath = rel.getPath();
+        if (string.endsWith("/") && !relPath.endsWith("/")) {
+            relPath = relPath + "/";
+        }
+
+        return relPath;
+    }
+
+    public String getAnimName(URI mediaURI, File file) {
+        String relativePath = this.getRelativeFile(mediaURI, file);
+        String animName = relativePath.toLowerCase(Locale.ENGLISH);
+        int dotIndex = animName.lastIndexOf(46);
+        if (dotIndex > -1) {
+            animName = animName.substring(0, dotIndex);
+        }
+
+        if (animName.startsWith("anims/")) {
+            animName = animName.substring("anims/".length());
+        } else if (animName.startsWith("anims_x/")) {
+            animName = animName.substring("anims_x/".length());
+        }
+
+        return animName;
+    }
+
+    public String resolveRelativePath(String srcFilePath, String relativePath) {
+        Path srcPath = Paths.get(srcFilePath);
+        Path srcFolder = srcPath.getParent();
+        Path destPath = srcFolder.resolve(relativePath);
+        String result = destPath.toString();
+        return this.getRelativeFile(result);
+    }
+
+    public void saveModsFile() {
+        try {
+            ensureFolderExists(Core.getMyDocumentFolder() + File.separator + "mods");
+            String path = Core.getMyDocumentFolder() + File.separator + "mods" + File.separator + "default.txt";
+            ActiveModsFile activeModsFile = new ActiveModsFile();
+            activeModsFile.write(path, ActiveMods.getById("default"));
+        } catch (Exception e) {
+            ExceptionLogger.logException(e);
+        }
+    }
+
+    public void loadModPackFiles() {
+        for (String modId : this.mods) {
+            try {
+                ChooseGameInfo.Mod info = ChooseGameInfo.getAvailableModDetails(modId);
+                if (info != null) {
+                    for (ChooseGameInfo.PackFile pack : info.getPacks()) {
+                        String rel = this.getRelativeFile("media/texturepacks/" + pack.name + ".pack");
+                        rel = rel.toLowerCase(Locale.ENGLISH);
+                        if (!this.activeFileMap.containsKey(rel)) {
+                            DebugType.Mod.warn("pack file \"" + pack.name + "\" needed by " + modId + " not found");
+                        } else {
+                            String fileName = instance.getString("media/texturepacks/" + pack.name + ".pack");
+                            if (!this.loadedPacks.contains(fileName)) {
+                                GameWindow.LoadTexturePack(pack.name, pack.flags, modId);
+                                this.loadedPacks.add(fileName);
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                ExceptionLogger.logException(ex);
+            }
+        }
+
+        GameWindow.setTexturePackLookup();
+    }
+
+    public void loadModTileDefs() {
+        Set<Integer> usedFileNumbers = new HashSet<>();
+
+        for (String modId : this.mods) {
+            try {
+                ChooseGameInfo.Mod info = ChooseGameInfo.getAvailableModDetails(modId);
+                if (info != null) {
+                    for (ChooseGameInfo.TileDef tileDef : info.getTileDefs()) {
+                        if (usedFileNumbers.contains(tileDef.fileNumber)) {
+                            DebugType.Mod.error("tiledef fileNumber " + tileDef.fileNumber + " used by more than one mod");
+                        } else {
+                            String name = tileDef.name;
+                            String rel = this.getRelativeFile("media/" + name + ".tiles");
+                            rel = rel.toLowerCase(Locale.ENGLISH);
+                            if (!this.activeFileMap.containsKey(rel)) {
+                                DebugType.Mod.error("tiledef file \"" + tileDef.name + "\" needed by " + modId + " not found");
+                            } else {
+                                name = this.activeFileMap.get(rel);
+                                IsoWorld.instance.LoadTileDefinitions(IsoSpriteManager.instance, name, tileDef.fileNumber);
+                                usedFileNumbers.add(tileDef.fileNumber);
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                DebugType.General.printException(ex, LogSeverity.Error);
+            }
+        }
+    }
+
+    public void loadModTileDefPropertyStrings() {
+        Set<Integer> usedFileNumbers = new HashSet<>();
+
+        for (String modId : this.mods) {
+            try {
+                ChooseGameInfo.Mod info = ChooseGameInfo.getAvailableModDetails(modId);
+                if (info != null) {
+                    for (ChooseGameInfo.TileDef tileDef : info.getTileDefs()) {
+                        if (usedFileNumbers.contains(tileDef.fileNumber)) {
+                            DebugType.Mod.error("tiledef fileNumber " + tileDef.fileNumber + " used by more than one mod");
+                        } else {
+                            String name = tileDef.name;
+                            String rel = this.getRelativeFile("media/" + name + ".tiles");
+                            rel = rel.toLowerCase(Locale.ENGLISH);
+                            if (!this.activeFileMap.containsKey(rel)) {
+                                DebugType.Mod.error("tiledef file \"" + tileDef.name + "\" needed by " + modId + " not found");
+                            } else {
+                                name = this.activeFileMap.get(rel);
+                                IsoWorld.instance.LoadTileDefinitionsPropertyStrings(IsoSpriteManager.instance, name, tileDef.fileNumber);
+                                usedFileNumbers.add(tileDef.fileNumber);
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                DebugType.General.printException(ex, LogSeverity.Error);
+            }
+        }
+    }
+
+    public void loadFileGuidTable() {
+        File file = instance.getMediaFile("fileGuidTable.xml");
+
+        try (FileInputStream adrFile = new FileInputStream(file)) {
+            JAXBContext ctx = JAXBContext.newInstance(FileGuidTable.class);
+            Unmarshaller um = ctx.createUnmarshaller();
+            this.fileGuidTable = (FileGuidTable)um.unmarshal(adrFile);
+            this.fileGuidTable.setModID("game");
+        } catch (JAXBException | IOException e) {
+            System.err.println("Failed to load file Guid table.");
+            ExceptionLogger.logException(e);
+            return;
+        }
+
+        try {
+            JAXBContext ctx = JAXBContext.newInstance(FileGuidTable.class);
+            Unmarshaller um = ctx.createUnmarshaller();
+
+            for (String modID : this.getModIDs()) {
+                ChooseGameInfo.Mod mod = ChooseGameInfo.getAvailableModDetails(modID);
+                if (mod != null) {
+                    try (FileInputStream fis = new FileInputStream(mod.getCommonDir() + "/media/fileGuidTable.xml")) {
+                        FileGuidTable table = (FileGuidTable)um.unmarshal(fis);
+                        table.setModID(modID);
+                        this.fileGuidTable.mergeFrom(table);
+                    } catch (FileNotFoundException var17) {
+                    } catch (Exception ex) {
+                        ExceptionLogger.logException(ex);
+                    }
+
+                    try (FileInputStream fis = new FileInputStream(mod.getVersionDir() + "/media/fileGuidTable.xml")) {
+                        FileGuidTable table = (FileGuidTable)um.unmarshal(fis);
+                        table.setModID(modID);
+                        this.fileGuidTable.mergeFrom(table);
+                    } catch (FileNotFoundException var13) {
+                    } catch (Exception ex) {
+                        ExceptionLogger.logException(ex);
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            ExceptionLogger.logException(ex);
+        }
+
+        this.fileGuidTable.loaded();
+        if (!this.fileGuidTableWatcherActive) {
+            DebugFileWatcher.instance.add(new PredicatedFileWatcher("media/fileGuidTable.xml", entryKey -> this.loadFileGuidTable()));
+            this.fileGuidTableWatcherActive = true;
+        }
+    }
+
+    public FileGuidTable getFileGuidTable() {
+        if (this.fileGuidTable == null) {
+            this.loadFileGuidTable();
+        }
+
+        return this.fileGuidTable;
+    }
+
+    public String getFilePathFromGuid(String guid) {
+        FileGuidTable table = this.getFileGuidTable();
+        return table != null ? table.getFilePathFromGuid(guid) : null;
+    }
+
+    public String getGuidFromFilePath(String path) {
+        FileGuidTable table = this.getFileGuidTable();
+        return table != null ? table.getGuidFromFilePath(path) : null;
+    }
+
+    public String resolveFileOrGUID(String source) {
+        String fileName = source;
+        String guidFileName = this.getFilePathFromGuid(source);
+        if (guidFileName != null) {
+            fileName = guidFileName;
+        }
+
+        String lower = fileName.toLowerCase(Locale.ENGLISH);
+        return this.activeFileMap.containsKey(lower) ? this.activeFileMap.get(lower) : fileName;
+    }
+
+    public boolean isValidFilePathGuid(String source) {
+        return this.getFilePathFromGuid(source) != null;
+    }
+
+    public static File[] listAllDirectories(String rootPath, FileFilter filter, boolean recursive) {
+        File root = new File(rootPath).getAbsoluteFile();
+        return listAllDirectories(root, filter, recursive);
+    }
+
+    public static File[] listAllDirectories(File root, FileFilter filter, boolean recursive) {
+        if (!root.isDirectory()) {
+            return new File[0];
+        }
+
+        ArrayList<File> result = new ArrayList<>();
+        listAllDirectoriesInternal(root, filter, recursive, result);
+        return result.toArray(new File[0]);
+    }
+
+    private static void listAllDirectoriesInternal(File folder, FileFilter filter, boolean recursive, ArrayList<File> result) {
+        File[] list = folder.listFiles();
+        if (list != null) {
+            for (File listedFile : list) {
+                if (!listedFile.isFile() && listedFile.isDirectory()) {
+                    if (filter.accept(listedFile)) {
+                        result.add(listedFile);
+                    }
+
+                    if (recursive) {
+                        listAllFilesInternal(listedFile, filter, true, result);
+                    }
+                }
+            }
+        }
+    }
+
+    public static File[] listAllFiles(String folderPath, FileFilter filter, boolean recursive) {
+        File folder = new File(folderPath).getAbsoluteFile();
+        return listAllFiles(folder, filter, recursive);
+    }
+
+    public static File[] listAllFiles(File folder, FileFilter filter, boolean recursive) {
+        if (folder != null && folder.isDirectory()) {
+            ArrayList<File> result = new ArrayList<>();
+            listAllFilesInternal(folder, filter, recursive, result);
+            return result.toArray(new File[0]);
+        } else {
+            return new File[0];
+        }
+    }
+
+    public static File[] listAllFiles(File folder) {
+        return listAllFiles(folder, file -> true, false);
+    }
+
+    private static void listAllFilesInternal(File folder, FileFilter filter, boolean recursive, ArrayList<File> result) {
+        File[] list = folder.listFiles();
+        if (list != null) {
+            for (File listedFile : list) {
+                if (listedFile.isFile()) {
+                    if (filter.accept(listedFile)) {
+                        result.add(listedFile);
+                    }
+                } else if (listedFile.isDirectory() && recursive) {
+                    listAllFilesInternal(listedFile, filter, true, result);
+                }
+            }
+        }
+    }
+
+    public void walkGameAndModFiles(String relPath, boolean recursive, ZomboidFileSystem.IWalkFilesVisitor consumer) {
+        this.walkGameAndModFilesInternal(this.base.canonicalFile, relPath, recursive, consumer);
+        List<String> modIDs = this.getModIDs();
+
+        for (int n = 0; n < modIDs.size(); n++) {
+            String modID = modIDs.get(n);
+            ChooseGameInfo.Mod mod = ChooseGameInfo.getAvailableModDetails(modID);
+            if (mod != null) {
+                this.walkGameAndModFilesInternal(new File(mod.getCommonDir()), relPath, recursive, consumer);
+                this.walkGameAndModFilesInternal(new File(mod.getVersionDir()), relPath, recursive, consumer);
+            }
+        }
+    }
+
+    private void walkGameAndModFilesInternal(File rootFile, String relPath, boolean recursive, ZomboidFileSystem.IWalkFilesVisitor consumer) {
+        File fo = new File(rootFile, relPath);
+        if (fo.isDirectory()) {
+            File[] list = fo.listFiles();
+            if (list != null) {
+                for (File listedFile : list) {
+                    consumer.visit(listedFile, relPath);
+                    if (recursive && listedFile.isDirectory()) {
+                        this.walkGameAndModFilesInternal(rootFile, relPath + "/" + listedFile.getName(), true, consumer);
+                    }
+                }
+            }
+        }
+    }
+
+    public String[] resolveAllDirectories(String relPath, FileFilter filter, boolean recursive) {
+        ArrayList<String> result = new ArrayList<>();
+        this.walkGameAndModFiles(relPath, recursive, (file, relPath2) -> {
+            if (file.isDirectory() && filter.accept(file)) {
+                String relPath3 = relPath2 + "/" + file.getName();
+                if (!result.contains(relPath3)) {
+                    result.add(relPath3);
+                }
+            }
+        });
+        return result.toArray(new String[0]);
+    }
+
+    public String[] resolveAllFiles(String relPath, FileFilter filter, boolean recursive) {
+        ArrayList<String> result = new ArrayList<>();
+        this.walkGameAndModFiles(relPath, recursive, (file, relPath2) -> {
+            if (file.isFile() && filter.accept(file)) {
+                String relPath3 = relPath2 + "/" + file.getName();
+                if (!result.contains(relPath3)) {
+                    result.add(relPath3);
+                }
+            }
+        });
+        return result.toArray(new String[0]);
+    }
+
+    public String normalizeFolderPath(String path) {
+        path = path.toLowerCase(Locale.ENGLISH).replace('\\', '/');
+        path = path + "/";
+        return path.replace("///", "/").replace("//", "/");
+    }
+
+    public static String processFilePath(String filePath, char separatorChar) {
+        if (separatorChar != '\\') {
+            filePath = filePath.replace('\\', separatorChar);
+        }
+
+        if (separatorChar != '/') {
+            filePath = filePath.replace('/', separatorChar);
+        }
+
+        return filePath;
+    }
+
+    public boolean tryDeleteFile(String filePath) {
+        if (StringUtils.isNullOrWhitespace(filePath)) {
+            return false;
+        }
+
+        try {
+            return this.deleteFile(filePath);
+        } catch (IOException e) {
+            DebugType.FileIO.printException(e, String.format("Failed to delete file: \"%s\"", filePath), LogSeverity.General);
+            return false;
+        }
+    }
+
+    public static boolean deleteDirectory(String dirPath) {
+        File directoryToBeDeleted = new File(dirPath);
+        File[] allContents = directoryToBeDeleted.listFiles();
+        if (allContents != null) {
+            for (File file : allContents) {
+                deleteDirectory(file.getAbsolutePath());
+            }
+        }
+
+        return directoryToBeDeleted.delete();
+    }
+
+    public boolean deleteFile(String filePath) throws IOException {
+        File file = new File(filePath).getAbsoluteFile();
+        if (!file.isFile()) {
+            throw new FileNotFoundException(String.format("File path not found: \"%s\"", filePath));
+        } else if (file.delete()) {
+            DebugType.FileIO.debugln("File deleted successfully: \"%s\"", filePath);
+            return true;
+        } else {
+            DebugType.FileIO.debugln("Failed to delete file: \"%s\"", filePath);
+            return false;
+        }
+    }
+
+    public void update() {
+        if (this.modsChangedTime != 0L) {
+            long now = System.currentTimeMillis();
+            if (this.modsChangedTime <= now) {
+                this.modsChangedTime = 0L;
+                this.modIdToDir.clear();
+                this.modDirToMod.clear();
+                this.resetModFolders();
+                ChooseGameInfo.Reset();
+
+                for (String modID : this.getModIDs()) {
+                    ChooseGameInfo.getModDetails(modID);
+                }
+
+                LuaEventManager.triggerEvent("OnModsModified");
+            }
+        }
+    }
+
+    private boolean isModFile(String path) {
+        if (this.modsChangedTime > 0L) {
+            return false;
+        }
+
+        // Snapshotted, not read field-by-field: this runs on the DebugFileWatcher thread, and a
+        // reset between the null check and the loop below used to be an NPE on that thread. A
+        // slightly stale list is the right answer here - it only decides whether a changed file is
+        // worth reacting to.
+        List<String> folders;
+        synchronized (this.modFoldersLock) {
+            folders = this.modFolders;
+        }
+
+        if (folders == null) {
+            return false;
+        }
+
+        path = path.toLowerCase().replace('\\', '/');
+        if (path.endsWith("/mods/default.txt")) {
+            return false;
+        }
+
+        for (int i = 0; i < folders.size(); i++) {
+            String path1 = folders.get(i).toLowerCase().replace('\\', '/');
+            if (path.startsWith(path1)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void onModFileChanged(String path) {
+        this.modsChangedTime = System.currentTimeMillis() + 2000L;
+    }
+
+    public void cleanMultiplayerSaves() {
+        DebugType.FileIO.println("Start cleaning save fs");
+        String cacheDirRoot = this.getSaveDir();
+        String saveDirRoot = cacheDirRoot + File.separator + "Multiplayer" + File.separator;
+        File mpDir = new File(saveDirRoot);
+        if (!mpDir.exists()) {
+            mpDir.mkdir();
+        }
+
+        try {
+            File[] mpDirFiles = mpDir.listFiles();
+
+            for (File saveDir : mpDirFiles) {
+                DebugType.FileIO.println("Checking " + saveDir.getAbsoluteFile() + " dir");
+                if (saveDir.isDirectory()) {
+                    File mapBin = new File(saveDir + File.separator + "map.bin");
+                    if (mapBin.exists()) {
+                        DebugType.FileIO.println("Processing dir: %s", saveDir.getAbsoluteFile());
+
+                        try {
+                            Stream<Path> files = Files.walk(saveDir.toPath());
+                            files.forEach(file -> {
+                                if (file.getFileName().toString().matches("map_\\d+_\\d+.bin")) {
+                                    DebugType.FileIO.println("Delete %s", file.getFileName().toString());
+                                    file.toFile().delete();
+                                }
+                            });
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                }
+            }
+        } catch (RuntimeException e) {
+            DebugType.FileIO.printException(e, e.toString(), LogSeverity.Warning);
+        }
+    }
+
+    public void resetDefaultModsForNewRelease(String versionStr) {
+        ensureFolderExists(this.getCacheDirSub("mods"));
+        String path = this.getCacheDirSub("mods") + File.separator + "reset-mods-" + versionStr + ".txt";
+        File file = new File(path);
+        if (!file.exists()) {
+            try (
+                FileWriter fr = new FileWriter(file);
+                BufferedWriter br = new BufferedWriter(fr);
+            ) {
+                String contents = "If this file does not exist, default.txt will be reset to empty (no mods active).";
+                br.write("If this file does not exist, default.txt will be reset to empty (no mods active).");
+            } catch (Exception ex) {
+                ExceptionLogger.logException(ex);
+                return;
+            }
+
+            ActiveMods activeMods = ActiveMods.getById("default");
+            activeMods.clear();
+            this.saveModsFile();
+        }
+    }
+
+    public static synchronized String getStartupTimeStamp() {
+        if (startupTimeStamp == null) {
+            startupTimeStamp = getDateTimeStampStringNow();
+        }
+
+        return startupTimeStamp;
+    }
+
+    public static String getDateTimeStampStringNow() {
+        return getTimeStampStringNow(s_dateTimeSdf);
+    }
+
+    public static String getDateTimeStampString(Date time) {
+        return getTimeStampString(time, s_dateTimeSdf);
+    }
+
+    public static String getDateStampString(Date time) {
+        return getTimeStampString(time, s_dateOnlySdf);
+    }
+
+    public static String getTimeStampString(Date time, SimpleDateFormat format) {
+        return format.format(time);
+    }
+
+    public static String getTimeStampStringNow(SimpleDateFormat format) {
+        Date time = Calendar.getInstance().getTime();
+        return getTimeStampString(time, format);
+    }
+
+    public static String getFileExtension(String path) {
+        String fileName = new File(path).getName();
+        int dotIndex = fileName.lastIndexOf(46);
+        return dotIndex < 0 ? "" : fileName.substring(dotIndex + 1);
+    }
+
+    private static Path normalizeToPath(String path) {
+        return Path.of(Path.of(path).normalize().toAbsolutePath().normalize().toString().toLowerCase());
+    }
+
+    public void validatePrefix(String input) {
+        Path inputPath = normalizeToPath(input);
+        long generation = PLZPrefixRetry.generation();
+        if (this.matchesAllowedPrefix(inputPath)) {
+            return;
+        }
+
+        if (PLZPrefixRetry.refresh(generation, this::refreshAllowedPrefixes) && this.matchesAllowedPrefix(inputPath)) {
+            DebugType.Mod.println("validatePrefix: allowed after re-enumerating mod folders: " + input);
+            this.plzForgetRefusedTextures();
+            return;
+        }
+
+        // Nothing the player sees names the mod, the file or Steam, so record it for the client
+        // to surface. Throw path only: a refusal the retry above took back is not worth a popup.
+        PLZAssetRefusals.record(input);
+        throw new IllegalArgumentException("Invalid prefix found for: %s".formatted(input));
+    }
+
+    private boolean matchesAllowedPrefix(Path inputPath) {
+        List<Path> allowedPrefixes = this.allowedPrefixes.get();
+        int size = allowedPrefixes.size();
+
+        for (int i = 0; i < size; i++) {
+            Path allowedPrefix = allowedPrefixes.get(i);
+            if (inputPath.startsWith(allowedPrefix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void refreshAllowedPrefixes() {
+        this.resetModFolders();
+        this.allowedPrefixes.get();
+    }
+
+    // Repairing the prefix list does not un-break anything already refused. Texture remembers a
+    // refusal in the public nullTextures set, getSharedTextureInternal consults it before doing
+    // anything else, and only onTexturePacksChanged clears it - which nothing on the connect path
+    // calls. So one lost enumeration leaves a blank world map and invisible remote players until
+    // the process is restarted, and reconnecting cannot fix it because ConnectToServerState calls
+    // resetModFolders() on every connect and re-rolls the same dice.
+    //
+    // Dropping only the negative entries, not onTexturePacksChanged(), which also empties
+    // s_sharedTextureTable and would make every texture in the game reload.
+    //
+    // Called from whatever thread hit the refusal, while the render thread may be in contains().
+    // HashSet.clear() nulls the bins but not the table reference, and contains() walks a bin
+    // without an iterator, so the worst a concurrent reader sees is a miss - which is the answer
+    // we want anyway: not cached as dead, go and load it. No CME, no NPE.
+    private void plzForgetRefusedTextures() {
+        int dropped = Texture.nullTextures.size();
+        if (dropped > 0) {
+            Texture.nullTextures.clear();
+            DebugType.Mod
+                .println(
+                    "PLZ: dropped " + dropped + " refused-texture entr" + (dropped == 1 ? "y" : "ies")
+                        + " so they retry now the mod folder list is good again"
+                );
+        }
+    }
+
+    public static String getFileName(String filePath) {
+        if (StringUtils.isNullOrWhitespace(filePath)) {
+            return "";
+        }
+
+        int lastSlashIndex = PZMath.max(filePath.lastIndexOf(92), filePath.lastIndexOf(47));
+        return lastSlashIndex == -1 ? filePath.trim() : filePath.substring(lastSlashIndex + 1).trim();
+    }
+
+    public static String getFileNameNoExtension(String filePath) {
+        String fileName = getFileName(filePath);
+        if (StringUtils.isNullOrWhitespace(fileName)) {
+            return "";
+        }
+
+        int lastDotIdx = fileName.lastIndexOf(46);
+        return lastDotIdx == -1 ? fileName : fileName.substring(0, lastDotIdx).trim();
+    }
+
+    public static String processStringToValidFileName(String fileNameRaw) {
+        if (StringUtils.isNullOrEmpty(fileNameRaw)) {
+            return null;
+        }
+
+        String fileNameTrimmedWhitespace = fileNameRaw.trim();
+        if (StringUtils.isNullOrEmpty(fileNameTrimmedWhitespace)) {
+            return null;
+        }
+
+        String fileNameTrimmedTrailingDots = trimTrailingDots(fileNameTrimmedWhitespace);
+        if (StringUtils.isNullOrEmpty(fileNameTrimmedTrailingDots)) {
+            return null;
+        }
+
+        String fileNameValidCharsOnly = ensureOnlyValidCharacters(fileNameTrimmedTrailingDots);
+        if (StringUtils.isNullOrEmpty(fileNameValidCharsOnly)) {
+            return null;
+        }
+
+        String fileNameSingleDots = ensureOnlySingleDots(fileNameValidCharsOnly);
+        if (StringUtils.isNullOrEmpty(fileNameSingleDots)) {
+            return null;
+        }
+
+        String fileNameMaxLength = ensureMaxLength(fileNameSingleDots);
+        if (StringUtils.isNullOrEmpty(fileNameMaxLength)) {
+            return null;
+        }
+
+        String fileNameTrimmedTrailingDots2 = trimTrailingDots(fileNameMaxLength);
+        return StringUtils.isNullOrEmpty(fileNameTrimmedTrailingDots2) ? null : fileNameTrimmedTrailingDots2;
+    }
+
+    private static String trimTrailingDots(String fileNameRaw) {
+        int fileNameRawLength = fileNameRaw.length();
+        int fileNameLength = fileNameRawLength;
+
+        for (int i = fileNameLength - 1; i >= 0; fileNameLength = i--) {
+            char c = fileNameRaw.charAt(i);
+            if (c != '.') {
+                break;
+            }
+        }
+
+        return fileNameLength == fileNameRawLength ? fileNameRaw : fileNameRaw.substring(0, fileNameLength);
+    }
+
+    private static String ensureOnlyValidCharacters(String fileNameRaw) {
+        int length = fileNameRaw.length();
+        StringBuilder stringBuilder = new StringBuilder(length);
+
+        for (int i = 0; i < length; i++) {
+            char c = fileNameRaw.charAt(i);
+            if (isValidFileNameCharacter(c)) {
+                stringBuilder.append(c);
+            } else {
+                stringBuilder.append('_');
+            }
+        }
+
+        return stringBuilder.toString();
+    }
+
+    private static String ensureOnlySingleDots(String fileNameRaw) {
+        int length = fileNameRaw.length();
+        StringBuilder stringBuilder = new StringBuilder(length);
+
+        for (int i = 0; i < length; i++) {
+            char c = fileNameRaw.charAt(i);
+            if (i > 0 && fileNameRaw.charAt(i - 1) == '.' && c == '.') {
+                stringBuilder.append('_');
+            } else {
+                stringBuilder.append(c);
+            }
+        }
+
+        return stringBuilder.toString();
+    }
+
+    private static String ensureMaxLength(String fileNameRaw) {
+        int maxLength = 255;
+        return fileNameRaw.length() <= 255 ? fileNameRaw : fileNameRaw.substring(0, 255);
+    }
+
+    private static boolean isValidFileNameCharacter(char c) {
+        return c == '.' || c == '_' || c == '-' || c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9';
+    }
+
+    public interface IWalkFilesVisitor {
+        void visit(File var1, String var2);
+    }
+
+    public static final class PZFolder {
+        public File absoluteFile;
+        public File canonicalFile;
+        public URI canonicalUri;
+        public URI lowercaseUri;
+
+        public void set(File file) throws IOException {
+            this.absoluteFile = file.getAbsoluteFile();
+            this.canonicalFile = this.absoluteFile.getCanonicalFile();
+            this.canonicalUri = this.canonicalFile.toURI();
+            this.lowercaseUri = new File(this.canonicalFile.getPath().toLowerCase(Locale.ENGLISH)).toURI();
+        }
+
+        public void setWithCatch(File file) {
+            try {
+                this.set(file);
+            } catch (IOException ex) {
+                this.canonicalFile = null;
+                this.canonicalUri = null;
+                this.lowercaseUri = null;
+                ExceptionLogger.logException(ex);
+            }
+        }
+    }
+
+    public static final class PZModFolder {
+        public ZomboidFileSystem.PZFolder common = new ZomboidFileSystem.PZFolder();
+        public ZomboidFileSystem.PZFolder version = new ZomboidFileSystem.PZFolder();
+
+        public void setWithCatch(File commonFile, File versionFile) {
+            this.common.setWithCatch(commonFile);
+            this.version.setWithCatch(versionFile);
+        }
+    }
+
+    public static class UnitTests {
+        public static void run() {
+            processStringToValidFileName();
+        }
+
+        public static <T, R> void runTest(Function<T, R> test, T input, R expected, ZomboidFileSystem.UnitTests.TestPredicate<T, R> testPass) {
+            R output = test.apply(input);
+            if (testPass.pass(expected, output)) {
+                DebugType.UnitTest.getLogStream().debuglnWithTraceOffset(1, "Input: \"%s\", Output: \"%s\", Unit test: PASS.", input, output);
+                zombie.UnitTests.unitTestPassed();
+            } else {
+                DebugType.UnitTest
+                    .getLogStream()
+                    .errorWithTraceOffset(1, "Input: \"%s\", Output: \"%s\", Expected: \"%s\", Unit test: FAIL.", input, output, expected);
+                zombie.UnitTests.unitTestFailed();
+            }
+        }
+
+        public static void processStringToValidFileName() {
+            runTest(ZomboidFileSystem::processStringToValidFileName, null, null, (var0, out) -> out == null);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "", null, (var0, out) -> out == null);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "    ", null, (var0, out) -> out == null);
+            runTest(ZomboidFileSystem::processStringToValidFileName, ".", null, (var0, out) -> out == null);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "..", null, (var0, out) -> out == null);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "...", null, (var0, out) -> out == null);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "....", null, (var0, out) -> out == null);
+            runTest(ZomboidFileSystem::processStringToValidFileName, " ....", null, (var0, out) -> out == null);
+            runTest(ZomboidFileSystem::processStringToValidFileName, " .... ", null, (var0, out) -> out == null);
+            runTest(ZomboidFileSystem::processStringToValidFileName, " .. .. ", ".__", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "a", "a", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, ".a", ".a", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "..a", "._a", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, ".a.", ".a", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, ".a..", ".a", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, ".a.. ", ".a", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, " .a. ", ".a", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, " .a.... ", ".a", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, " ...a.... ", ".__a", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "abc", "abc", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, " abc", "abc", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "abc ", "abc", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "  abc ", "abc", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "abc.", "abc", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "abc.", "abc", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, ".abc", ".abc", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, " .abc", ".abc", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "abc()def", "abc__def", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "abc..def", "abc._def", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "abc..def.", "abc._def", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "abc..def..", "abc._def", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "abc..def....", "abc._def", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "abc..def....   ", "abc._def", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "abc. def....   ", "abc._def", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "abc.   def....   ", "abc.___def", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "abc.   .def....   ", "abc.___.def", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "abc.   ..def....   ", "abc.___._def", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "path/to/fileName.ext", "path_to_fileName.ext", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "path/to/fileName.ext...", "path_to_fileName.ext", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "path/to/fileName.ext   ", "path_to_fileName.ext", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "   path/to/fileName.ext   ", "path_to_fileName.ext", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "path/to/fileName.ext.   ", "path_to_fileName.ext", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "path/to/file_()_Name.ext.   ", "path_to_file____Name.ext", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "path/to/file_()_Name123.ext.   ", "path_to_file____Name123.ext", StringUtils::equals);
+            runTest(ZomboidFileSystem::processStringToValidFileName, "path/to/file Name 123 abc.ext.   ", "path_to_file_Name_123_abc.ext", StringUtils::equals);
+            runTest(
+                ZomboidFileSystem::processStringToValidFileName,
+                "path/to/../file Name 123 abc.ext.   ",
+                "path_to_.__file_Name_123_abc.ext",
+                StringUtils::equals
+            );
+            runTest(
+                ZomboidFileSystem::processStringToValidFileName,
+                "../path/to/..\\file Name 123 abc.ext.   ",
+                ".__path_to_.__file_Name_123_abc.ext",
+                StringUtils::equals
+            );
+            runTest(
+                ZomboidFileSystem::processStringToValidFileName,
+                "  ../path/to/../file Name 123 abc.ext.   ",
+                ".__path_to_.__file_Name_123_abc.ext",
+                StringUtils::equals
+            );
+            runTest(
+                ZomboidFileSystem::processStringToValidFileName,
+                "  ..\\path\\to\\../file Name 123 abc.ext.   ",
+                ".__path_to_.__file_Name_123_abc.ext",
+                StringUtils::equals
+            );
+            runTest(
+                ZomboidFileSystem::processStringToValidFileName,
+                "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras auctor suscipit urna nec eleifend. Phasellus ut venenatis mauris. Donec eget tempor leo. Praesent erat leo, iaculis quis euismod nec, molestie quis nisi. Class aptent taciti sociosqu ad litora torquent per ligula.",
+                "Lorem_ipsum_dolor_sit_amet__consectetur_adipiscing_elit._Cras_auctor_suscipit_urna_nec_eleifend._Phasellus_ut_venenatis_mauris._Donec_eget_tempor_leo._Praesent_erat_leo__iaculis_quis_euismod_nec__molestie_quis_nisi._Class_aptent_taciti_sociosqu_ad_litora_",
+                StringUtils::equals
+            );
+            runTest(
+                ZomboidFileSystem::processStringToValidFileName,
+                "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras auctor suscipit urna nec eleifend. Phasellus ut venenatis mauris. Donec eget tempor leo. Praesent erat leo, iaculis quis euismod nec, molestie quis nisi. Class aptent taciti sociosqu ad litor.......a torquent per ligula.",
+                "Lorem_ipsum_dolor_sit_amet__consectetur_adipiscing_elit._Cras_auctor_suscipit_urna_nec_eleifend._Phasellus_ut_venenatis_mauris._Donec_eget_tempor_leo._Praesent_erat_leo__iaculis_quis_euismod_nec__molestie_quis_nisi._Class_aptent_taciti_sociosqu_ad_litor._",
+                StringUtils::equals
+            );
+            runTest(
+                ZomboidFileSystem::processStringToValidFileName,
+                "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras auctor suscipit urna nec eleifend. Phasellus ut venenatis mauris. Donec eget tempor leo. Praesent erat leo, iaculis quis euismod nec, molestie quis nisi. Class aptent taciti sociosqu ad litora.......a torquent per ligula.",
+                "Lorem_ipsum_dolor_sit_amet__consectetur_adipiscing_elit._Cras_auctor_suscipit_urna_nec_eleifend._Phasellus_ut_venenatis_mauris._Donec_eget_tempor_leo._Praesent_erat_leo__iaculis_quis_euismod_nec__molestie_quis_nisi._Class_aptent_taciti_sociosqu_ad_litora",
+                StringUtils::equals
+            );
+        }
+
+        public interface TestPredicate<T, R> {
+            boolean pass(R var1, R var2);
+        }
+    }
+}

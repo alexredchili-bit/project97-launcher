@@ -1,0 +1,1571 @@
+﻿{
+    "releases":  [
+                     {
+                         "date":  "2026-10-08T05:23:20Z",
+                         "workshopVersion":  "1.3.1",
+                         "payloadBuild":  72,
+                         "serverTag":  72,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1791433878,
+                         "builtAgainstJar":  "e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33",
+                         "provenance":  {
+                                            "repo":  "AlexVDefi/ProjectLifeZoid-Launcher-Source",
+                                            "commit":  "4aafb71b51c53b3dccce7e04acf80de7ba784c5b",
+                                            "workflow":  ".github/workflows/payload.yml",
+                                            "run":  "https://github.com/AlexVDefi/ProjectLifeZoid-Launcher-Source/actions/runs/37707088756/attempts/1",
+                                            "release":  "payload-build-72",
+                                            "sums":  "5d673d0e1533de8e3fdc3bb3193285b94e6f08185d490ba4f709ea805e24e107"
+                                        },
+                         "clientFiles":  481,
+                         "serverFiles":  354,
+                         "launcher":  {
+                                          "sha":  "03aadc3",
+                                          "dirty":  3
+                                      },
+                         "mods":  {
+                                      "sha":  "4b94ec9",
+                                      "dirty":  5
+                                  }
+                     },
+                     {
+                         "date":  "2026-10-08T01:33:32Z",
+                         "workshopVersion":  "1.3.0",
+                         "payloadBuild":  72,
+                         "serverTag":  72,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1791418829,
+                         "builtAgainstJar":  "e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33",
+                         "provenance":  {
+                                            "repo":  "AlexVDefi/ProjectLifeZoid-Launcher-Source",
+                                            "commit":  "4aafb71b51c53b3dccce7e04acf80de7ba784c5b",
+                                            "workflow":  ".github/workflows/payload.yml",
+                                            "run":  "https://github.com/AlexVDefi/ProjectLifeZoid-Launcher-Source/actions/runs/37707088756/attempts/1",
+                                            "release":  "payload-build-72",
+                                            "sums":  "5d673d0e1533de8e3fdc3bb3193285b94e6f08185d490ba4f709ea805e24e107"
+                                        },
+                         "clientFiles":  481,
+                         "serverFiles":  354,
+                         "launcher":  {
+                                          "sha":  "4b4c8df",
+                                          "dirty":  3
+                                      },
+                         "mods":  {
+                                      "sha":  "ee79de2",
+                                      "dirty":  9
+                                  }
+                     },
+                     {
+                         "date":  "2026-10-06T19:44:46Z",
+                         "workshopVersion":  "1.2.0",
+                         "payloadBuild":  71,
+                         "serverTag":  71,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1791313053,
+                         "builtAgainstJar":  "e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33",
+                         "provenance":  {
+                                            "repo":  "AlexVDefi/ProjectLifeZoid-Launcher-Source",
+                                            "commit":  "1c556b7b1dad17769354905f77195f76556fe4cc",
+                                            "workflow":  ".github/workflows/payload.yml",
+                                            "run":  "https://github.com/AlexVDefi/ProjectLifeZoid-Launcher-Source/actions/runs/37515102886/attempts/1",
+                                            "release":  "payload-build-71",
+                                            "sums":  "4449638b7b4b5abb7e511239040f297a42cbc0c1f5161c8f2f07a304de3949fb"
+                                        },
+                         "clientFiles":  471,
+                         "serverFiles":  349,
+                         "launcher":  {
+                                          "sha":  "6e67db0",
+                                          "dirty":  3
+                                      },
+                         "mods":  {
+                                      "sha":  "5979d11",
+                                      "dirty":  7
+                                  }
+                     },
+                     {
+                         "date":  "2026-10-05T18:00:17Z",
+                         "workshopVersion":  "1.1.0",
+                         "payloadBuild":  70,
+                         "serverTag":  70,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1791219986,
+                         "builtAgainstJar":  "e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33",
+                         "provenance":  {
+                                            "repo":  "AlexVDefi/ProjectLifeZoid-Launcher-Source",
+                                            "commit":  "4390e8c5982e1f3425c2e45c4c912ebffd44173e",
+                                            "workflow":  ".github/workflows/payload.yml",
+                                            "run":  "https://github.com/AlexVDefi/ProjectLifeZoid-Launcher-Source/actions/runs/37345554175/attempts/1",
+                                            "release":  "payload-build-70",
+                                            "sums":  "3a85349949e036eba236f73874ff29366b13a24c5a455810bee1f5cc909ac70e"
+                                        },
+                         "clientFiles":  472,
+                         "serverFiles":  350,
+                         "launcher":  {
+                                          "sha":  "79ae3bc",
+                                          "dirty":  3
+                                      },
+                         "mods":  {
+                                      "sha":  "198bf82",
+                                      "dirty":  5
+                                  }
+                     },
+                     {
+                         "date":  "2026-10-04T04:34:20Z",
+                         "workshopVersion":  "1.0.60",
+                         "payloadBuild":  69,
+                         "serverTag":  69,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1791087444,
+                         "builtAgainstJar":  "e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33",
+                         "provenance":  {
+                                            "repo":  "AlexVDefi/ProjectLifeZoid-Launcher-Source",
+                                            "commit":  "8e2745fdcbb56dc9b545b5b8a1eaea3bc0bc6cde",
+                                            "workflow":  ".github/workflows/payload.yml",
+                                            "run":  "https://github.com/AlexVDefi/ProjectLifeZoid-Launcher-Source/actions/runs/37166867358/attempts/1",
+                                            "release":  "payload-build-69",
+                                            "sums":  "3cb8f2ba216ace6d92c01f6b18f242acbab708a6c035d9dd19e35412ae680036"
+                                        },
+                         "clientFiles":  466,
+                         "serverFiles":  346,
+                         "launcher":  {
+                                          "sha":  "b764808",
+                                          "dirty":  13
+                                      },
+                         "mods":  {
+                                      "sha":  "99913b3",
+                                      "dirty":  3
+                                  }
+                     },
+                     {
+                         "date":  "2026-10-04T02:29:40Z",
+                         "workshopVersion":  "1.0.59",
+                         "payloadBuild":  69,
+                         "serverTag":  69,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1791080216,
+                         "builtAgainstJar":  "e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33",
+                         "provenance":  {
+                                            "repo":  "AlexVDefi/ProjectLifeZoid-Launcher-Source",
+                                            "commit":  "8e2745fdcbb56dc9b545b5b8a1eaea3bc0bc6cde",
+                                            "workflow":  ".github/workflows/payload.yml",
+                                            "run":  "https://github.com/AlexVDefi/ProjectLifeZoid-Launcher-Source/actions/runs/37166867358/attempts/1",
+                                            "release":  "payload-build-69",
+                                            "sums":  "3cb8f2ba216ace6d92c01f6b18f242acbab708a6c035d9dd19e35412ae680036"
+                                        },
+                         "clientFiles":  466,
+                         "serverFiles":  346,
+                         "launcher":  {
+                                          "sha":  "37f7018",
+                                          "dirty":  3
+                                      },
+                         "mods":  {
+                                      "sha":  "8365dab",
+                                      "dirty":  9
+                                  }
+                     },
+                     {
+                         "date":  "2026-10-04T01:33:03Z",
+                         "workshopVersion":  "1.0.58",
+                         "payloadBuild":  69,
+                         "serverTag":  69,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1791075944,
+                         "builtAgainstJar":  "e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33",
+                         "provenance":  {
+                                            "repo":  "AlexVDefi/ProjectLifeZoid-Launcher-Source",
+                                            "commit":  "8e2745fdcbb56dc9b545b5b8a1eaea3bc0bc6cde",
+                                            "workflow":  ".github/workflows/payload.yml",
+                                            "run":  "https://github.com/AlexVDefi/ProjectLifeZoid-Launcher-Source/actions/runs/37166867358/attempts/1",
+                                            "release":  "payload-build-69",
+                                            "sums":  "3cb8f2ba216ace6d92c01f6b18f242acbab708a6c035d9dd19e35412ae680036"
+                                        },
+                         "clientFiles":  466,
+                         "serverFiles":  346,
+                         "launcher":  {
+                                          "sha":  "80a4963",
+                                          "dirty":  3
+                                      },
+                         "mods":  {
+                                      "sha":  "fea6eb4",
+                                      "dirty":  8
+                                  }
+                     },
+                     {
+                         "date":  "2026-10-03T04:04:43Z",
+                         "workshopVersion":  "1.0.57",
+                         "payloadBuild":  68,
+                         "serverTag":  68,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1790997995,
+                         "builtAgainstJar":  "e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33",
+                         "provenance":  {
+                                            "repo":  "AlexVDefi/ProjectLifeZoid-Launcher-Source",
+                                            "commit":  "009fb0bf11f23d436c2b590e3bb34d9da8cfa491",
+                                            "workflow":  ".github/workflows/payload.yml",
+                                            "run":  "https://github.com/AlexVDefi/ProjectLifeZoid-Launcher-Source/actions/runs/36890999058/attempts/1",
+                                            "release":  "payload-build-68",
+                                            "sums":  "fcd309931ae4e129968a71f6feffab29766745cd360c71caff7971eb06bb7df5"
+                                        },
+                         "clientFiles":  441,
+                         "serverFiles":  340,
+                         "launcher":  {
+                                          "sha":  "3ef5fce",
+                                          "dirty":  4
+                                      },
+                         "mods":  {
+                                      "sha":  "3899dad",
+                                      "dirty":  3
+                                  }
+                     },
+                     {
+                         "date":  "2026-10-01T17:03:16Z",
+                         "workshopVersion":  "1.0.56",
+                         "payloadBuild":  68,
+                         "serverTag":  68,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1790871607,
+                         "builtAgainstJar":  "e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33",
+                         "provenance":  {
+                                            "repo":  "AlexVDefi/ProjectLifeZoid-Launcher-Source",
+                                            "commit":  "009fb0bf11f23d436c2b590e3bb34d9da8cfa491",
+                                            "workflow":  ".github/workflows/payload.yml",
+                                            "run":  "https://github.com/AlexVDefi/ProjectLifeZoid-Launcher-Source/actions/runs/36890999058/attempts/1",
+                                            "release":  "payload-build-68",
+                                            "sums":  "fcd309931ae4e129968a71f6feffab29766745cd360c71caff7971eb06bb7df5"
+                                        },
+                         "clientFiles":  441,
+                         "serverFiles":  340,
+                         "launcher":  {
+                                          "sha":  "c4d94e5",
+                                          "dirty":  3
+                                      },
+                         "mods":  {
+                                      "sha":  "efbee14",
+                                      "dirty":  3
+                                  }
+                     },
+                     {
+                         "date":  "2026-10-01T16:00:22Z",
+                         "workshopVersion":  "1.0.55",
+                         "payloadBuild":  67,
+                         "serverTag":  67,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1790866988,
+                         "builtAgainstJar":  "e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33",
+                         "provenance":  {
+                                            "repo":  "AlexVDefi/ProjectLifeZoid-Launcher-Source",
+                                            "commit":  "f908460c5728db87db57c725f54256725a068e43",
+                                            "workflow":  ".github/workflows/payload.yml",
+                                            "run":  "https://github.com/AlexVDefi/ProjectLifeZoid-Launcher-Source/actions/runs/36637437533/attempts/1",
+                                            "release":  "payload-build-67",
+                                            "sums":  "fcd309931ae4e129968a71f6feffab29766745cd360c71caff7971eb06bb7df5"
+                                        },
+                         "clientFiles":  437,
+                         "serverFiles":  338,
+                         "launcher":  {
+                                          "sha":  "535408c",
+                                          "dirty":  4
+                                      },
+                         "mods":  {
+                                      "sha":  "b6e0317",
+                                      "dirty":  3
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-29T22:49:27Z",
+                         "workshopVersion":  "1.0.54",
+                         "payloadBuild":  67,
+                         "serverTag":  67,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1790701374,
+                         "builtAgainstJar":  "e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33",
+                         "provenance":  {
+                                            "repo":  "AlexVDefi/ProjectLifeZoid-Launcher-Source",
+                                            "commit":  "f908460c5728db87db57c725f54256725a068e43",
+                                            "workflow":  ".github/workflows/payload.yml",
+                                            "run":  "https://github.com/AlexVDefi/ProjectLifeZoid-Launcher-Source/actions/runs/36637437533/attempts/1",
+                                            "release":  "payload-build-67",
+                                            "sums":  "fcd309931ae4e129968a71f6feffab29766745cd360c71caff7971eb06bb7df5"
+                                        },
+                         "clientFiles":  437,
+                         "serverFiles":  338,
+                         "launcher":  {
+                                          "sha":  "565c9f8",
+                                          "dirty":  5
+                                      },
+                         "mods":  {
+                                      "sha":  "a6766c8",
+                                      "dirty":  397
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-29T18:39:17Z",
+                         "workshopVersion":  "1.0.54",
+                         "payloadBuild":  66,
+                         "serverTag":  66,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1790701374,
+                         "builtAgainstJar":  "e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33",
+                         "provenance":  {
+                                            "repo":  "AlexVDefi/ProjectLifeZoid-Launcher-Source",
+                                            "commit":  "e3038428fd07c32ce6d2574f8da713a9e2837fcc",
+                                            "workflow":  ".github/workflows/payload.yml",
+                                            "run":  "https://github.com/AlexVDefi/ProjectLifeZoid-Launcher-Source/actions/runs/36611759300/attempts/1",
+                                            "release":  "payload-build-66",
+                                            "sums":  "582e1329654f63f581cef363b6a402ede06fa58894656bc05a4481f33474cd88"
+                                        },
+                         "clientFiles":  436,
+                         "serverFiles":  337,
+                         "launcher":  {
+                                          "sha":  "2764380",
+                                          "dirty":  4
+                                      },
+                         "mods":  {
+                                      "sha":  "a6766c8",
+                                      "dirty":  94
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-29T17:32:36Z",
+                         "workshopVersion":  "1.0.54",
+                         "payloadBuild":  65,
+                         "serverTag":  65,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1790701374,
+                         "builtAgainstJar":  "e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33",
+                         "provenance":  {
+                                            "repo":  "AlexVDefi/ProjectLifeZoid-Launcher-Source",
+                                            "commit":  "46b5e229a85855211d4a03a203b92bb5d156ae97",
+                                            "workflow":  ".github/workflows/payload.yml",
+                                            "run":  "https://github.com/AlexVDefi/ProjectLifeZoid-Launcher-Source/actions/runs/36601936668/attempts/1",
+                                            "release":  "payload-build-65",
+                                            "sums":  "582e1329654f63f581cef363b6a402ede06fa58894656bc05a4481f33474cd88"
+                                        },
+                         "clientFiles":  435,
+                         "serverFiles":  337,
+                         "launcher":  {
+                                          "sha":  "cca2bd7",
+                                          "dirty":  4
+                                      },
+                         "mods":  {
+                                      "sha":  "7a96b00",
+                                      "dirty":  3
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-28T23:21:48Z",
+                         "workshopVersion":  "1.0.53",
+                         "payloadBuild":  64,
+                         "serverTag":  64,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1790634221,
+                         "builtAgainstJar":  "e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33",
+                         "provenance":  {
+                                            "repo":  "AlexVDefi/ProjectLifeZoid-Launcher-Source",
+                                            "commit":  "a6f1d8f9994ef4224159a93830b727a3da1b909d",
+                                            "workflow":  ".github/workflows/payload.yml",
+                                            "run":  "https://github.com/AlexVDefi/ProjectLifeZoid-Launcher-Source/actions/runs/36441591459/attempts/1",
+                                            "release":  "payload-build-64",
+                                            "sums":  "7975896ec3960df6bfc5edf93f125519b4685adbdf61a877d4231cdf9c9f5c76"
+                                        },
+                         "clientFiles":  429,
+                         "serverFiles":  333,
+                         "launcher":  {
+                                          "sha":  "8698c75",
+                                          "dirty":  3
+                                      },
+                         "mods":  {
+                                      "sha":  "4c8b646",
+                                      "dirty":  14
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-28T16:45:05Z",
+                         "workshopVersion":  "1.0.52",
+                         "payloadBuild":  64,
+                         "serverTag":  64,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1790608512,
+                         "builtAgainstJar":  "e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33",
+                         "provenance":  {
+                                            "repo":  "AlexVDefi/ProjectLifeZoid-Launcher-Source",
+                                            "commit":  "a6f1d8f9994ef4224159a93830b727a3da1b909d",
+                                            "workflow":  ".github/workflows/payload.yml",
+                                            "run":  "https://github.com/AlexVDefi/ProjectLifeZoid-Launcher-Source/actions/runs/36441591459/attempts/1",
+                                            "release":  "payload-build-64",
+                                            "sums":  "7975896ec3960df6bfc5edf93f125519b4685adbdf61a877d4231cdf9c9f5c76"
+                                        },
+                         "clientFiles":  429,
+                         "serverFiles":  333,
+                         "launcher":  {
+                                          "sha":  "ffb88fc",
+                                          "dirty":  3
+                                      },
+                         "mods":  {
+                                      "sha":  "7ca5510",
+                                      "dirty":  5
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-28T02:57:34Z",
+                         "workshopVersion":  "1.0.51",
+                         "payloadBuild":  63,
+                         "serverTag":  63,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1790563267,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "provenance":  {
+                                            "repo":  "AlexVDefi/ProjectLifeZoid-Launcher-Source",
+                                            "commit":  "f64cbac5ba9fb582174da06fe6d76a3784a4d265",
+                                            "workflow":  ".github/workflows/payload.yml",
+                                            "run":  "https://github.com/AlexVDefi/ProjectLifeZoid-Launcher-Source/actions/runs/36370654202/attempts/1",
+                                            "release":  "payload-build-63",
+                                            "sums":  "2552397ee15afd43f08d22d8a00c2229891ca7370e58d7afabb0ff644ad33dd0"
+                                        },
+                         "clientFiles":  427,
+                         "serverFiles":  333,
+                         "launcher":  {
+                                          "sha":  "bd7634a",
+                                          "dirty":  3
+                                      },
+                         "mods":  {
+                                      "sha":  "664ee82",
+                                      "dirty":  6
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-27T14:48:11Z",
+                         "workshopVersion":  "1.0.50",
+                         "payloadBuild":  62,
+                         "serverTag":  62,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1790518930,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "provenance":  {
+                                            "repo":  "AlexVDefi/ProjectLifeZoid-Launcher-Source",
+                                            "commit":  "76351a141b9f1849b104a2d6f3266df3c5cb5de9",
+                                            "workflow":  ".github/workflows/payload.yml",
+                                            "run":  "https://github.com/AlexVDefi/ProjectLifeZoid-Launcher-Source/actions/runs/36325563441/attempts/1",
+                                            "release":  "payload-build-62",
+                                            "sums":  "f7d154fc1fd1feddb1aa63cee3a013c9e0eb453cd527c7f641afb51b6f47653a"
+                                        },
+                         "clientFiles":  415,
+                         "serverFiles":  329,
+                         "launcher":  {
+                                          "sha":  "b6e87fe",
+                                          "dirty":  5
+                                      },
+                         "mods":  {
+                                      "sha":  "0699db4",
+                                      "dirty":  4
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-26T01:19:31Z",
+                         "workshopVersion":  "1.0.49",
+                         "payloadBuild":  61,
+                         "serverTag":  61,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1790384266,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "provenance":  {
+                                            "repo":  "AlexVDefi/ProjectLifeZoid-Launcher-Source",
+                                            "commit":  "b8879ea0b5b2b164012c55e61e0cc23d9c4c2f2c",
+                                            "workflow":  ".github/workflows/payload.yml",
+                                            "run":  "https://github.com/AlexVDefi/ProjectLifeZoid-Launcher-Source/actions/runs/36206647871/attempts/1",
+                                            "release":  "payload-build-61",
+                                            "sums":  "0a97ec8f96a0391e272514320a007e90d23f37d1c3f4ebea293f9a0e6aa9916a"
+                                        },
+                         "clientFiles":  414,
+                         "serverFiles":  328,
+                         "launcher":  {
+                                          "sha":  "a593bea",
+                                          "dirty":  3
+                                      },
+                         "mods":  {
+                                      "sha":  "4c5ba2a",
+                                      "dirty":  1
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-25T16:42:23Z",
+                         "workshopVersion":  "1.0.48",
+                         "payloadBuild":  60,
+                         "serverTag":  60,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1790268498,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "provenance":  {
+                                            "repo":  "AlexVDefi/ProjectLifeZoid-Launcher-Source",
+                                            "commit":  "df7f92f41bd588c00d7a0621fe53d71c32fe6b68",
+                                            "workflow":  ".github/workflows/payload.yml",
+                                            "run":  "https://github.com/AlexVDefi/ProjectLifeZoid-Launcher-Source/actions/runs/36159981584/attempts/1",
+                                            "release":  "payload-build-60",
+                                            "sums":  "7a40ea934c101f378f278162aee399203006a293809a3f6a03f306778b95d8a0"
+                                        },
+                         "clientFiles":  414,
+                         "serverFiles":  326,
+                         "launcher":  {
+                                          "sha":  "8c3933c",
+                                          "dirty":  12
+                                      },
+                         "mods":  {
+                                      "sha":  "21f04e5",
+                                      "dirty":  326
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-24T17:11:06Z",
+                         "workshopVersion":  "1.0.48",
+                         "payloadBuild":  59,
+                         "serverTag":  59,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1790268498,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "provenance":  {
+                                            "repo":  "AlexVDefi/ProjectLifeZoid-Launcher-Source",
+                                            "commit":  "1a0ee25e9b57ce645e81fa8bd28a9bbf20c86090",
+                                            "workflow":  ".github/workflows/payload.yml",
+                                            "run":  "https://github.com/AlexVDefi/ProjectLifeZoid-Launcher-Source/actions/runs/36029715248/attempts/1",
+                                            "release":  "payload-build-59",
+                                            "sums":  "a096d03cb939e5b493d3fec6101f2712343c1b7145b4790ddcb0d40ed083f2d2"
+                                        },
+                         "clientFiles":  414,
+                         "serverFiles":  324,
+                         "launcher":  {
+                                          "sha":  "84b602b",
+                                          "dirty":  9
+                                      },
+                         "mods":  {
+                                      "sha":  "21f04e5",
+                                      "dirty":  209
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-23T21:42:46Z",
+                         "workshopVersion":  "1.0.47",
+                         "payloadBuild":  58,
+                         "serverTag":  58,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1790198224,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  414,
+                         "serverFiles":  321,
+                         "launcher":  {
+                                          "sha":  "690d1e8",
+                                          "dirty":  27
+                                      },
+                         "mods":  {
+                                      "sha":  "21f04e5",
+                                      "dirty":  100
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-23T13:55:39Z",
+                         "workshopVersion":  "1.0.46",
+                         "payloadBuild":  57,
+                         "serverTag":  57,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1790170195,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  406,
+                         "serverFiles":  314,
+                         "launcher":  {
+                                          "sha":  "955eaac",
+                                          "dirty":  3
+                                      },
+                         "mods":  {
+                                      "sha":  "6fcbc9b",
+                                      "dirty":  0
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-22T23:09:46Z",
+                         "workshopVersion":  "1.0.45",
+                         "payloadBuild":  56,
+                         "serverTag":  56,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1790115974,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  406,
+                         "serverFiles":  314,
+                         "launcher":  {
+                                          "sha":  "9adc5a7",
+                                          "dirty":  6
+                                      },
+                         "mods":  {
+                                      "sha":  "4d75d92",
+                                      "dirty":  13
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-22T13:08:16Z",
+                         "workshopVersion":  "1.0.44",
+                         "payloadBuild":  55,
+                         "serverTag":  55,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1790079836,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  406,
+                         "serverFiles":  314,
+                         "launcher":  {
+                                          "sha":  "9adc5a7",
+                                          "dirty":  3
+                                      },
+                         "mods":  {
+                                      "sha":  "4d75d92",
+                                      "dirty":  1
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-21T19:40:03Z",
+                         "workshopVersion":  "1.0.43",
+                         "payloadBuild":  54,
+                         "serverTag":  54,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1790017818,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  409,
+                         "serverFiles":  314,
+                         "launcher":  {
+                                          "sha":  "da053b8",
+                                          "dirty":  2
+                                      },
+                         "mods":  {
+                                      "sha":  "f711d30",
+                                      "dirty":  4
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-21T01:02:42Z",
+                         "workshopVersion":  "1.0.42",
+                         "payloadBuild":  53,
+                         "serverTag":  53,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1789950932,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  322,
+                         "serverFiles":  301,
+                         "launcher":  {
+                                          "sha":  "da22169",
+                                          "dirty":  1
+                                      },
+                         "mods":  {
+                                      "sha":  "7628bbe",
+                                      "dirty":  1
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-20T16:33:19Z",
+                         "workshopVersion":  "1.0.41",
+                         "payloadBuild":  52,
+                         "serverTag":  52,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1789920998,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  321,
+                         "serverFiles":  300,
+                         "launcher":  {
+                                          "sha":  "19bfeb5",
+                                          "dirty":  2
+                                      },
+                         "mods":  {
+                                      "sha":  "533aa9a",
+                                      "dirty":  5
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-20T13:34:49Z",
+                         "workshopVersion":  "1.0.40",
+                         "payloadBuild":  51,
+                         "serverTag":  51,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1789910314,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  321,
+                         "serverFiles":  300,
+                         "launcher":  {
+                                          "sha":  "9d016fb",
+                                          "dirty":  10
+                                      },
+                         "mods":  {
+                                      "sha":  "42e338d",
+                                      "dirty":  5
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-20T02:05:08Z",
+                         "workshopVersion":  "1.0.39",
+                         "payloadBuild":  50,
+                         "serverTag":  50,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1789867446,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  321,
+                         "serverFiles":  294,
+                         "launcher":  {
+                                          "sha":  "9d016fb",
+                                          "dirty":  3
+                                      },
+                         "mods":  {
+                                      "sha":  "78a9532",
+                                      "dirty":  1
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-19T18:38:18Z",
+                         "workshopVersion":  "1.0.38",
+                         "payloadBuild":  49,
+                         "serverTag":  49,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1789840484,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  312,
+                         "serverFiles":  283,
+                         "launcher":  {
+                                          "sha":  "162396f",
+                                          "dirty":  6
+                                      },
+                         "mods":  {
+                                      "sha":  "b00d591",
+                                      "dirty":  4
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-19T12:49:07Z",
+                         "workshopVersion":  "1.0.37",
+                         "payloadBuild":  48,
+                         "serverTag":  48,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1789820762,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  311,
+                         "serverFiles":  283,
+                         "launcher":  {
+                                          "sha":  "dab5cac",
+                                          "dirty":  1
+                                      },
+                         "mods":  {
+                                      "sha":  "1eb31df",
+                                      "dirty":  4
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-19T01:07:04Z",
+                         "workshopVersion":  "1.0.36",
+                         "payloadBuild":  47,
+                         "serverTag":  47,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1789773004,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  308,
+                         "serverFiles":  276,
+                         "launcher":  {
+                                          "sha":  "e6e6e70",
+                                          "dirty":  7
+                                      },
+                         "mods":  {
+                                      "sha":  "6da9e97",
+                                      "dirty":  0
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-18T23:37:16Z",
+                         "workshopVersion":  "1.0.36",
+                         "payloadBuild":  46,
+                         "serverTag":  46,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1789773004,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  308,
+                         "serverFiles":  276,
+                         "launcher":  {
+                                          "sha":  "e6e6e70",
+                                          "dirty":  3
+                                      },
+                         "mods":  {
+                                      "sha":  "c4af948",
+                                      "dirty":  4
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-18T19:31:30Z",
+                         "workshopVersion":  "1.0.35",
+                         "payloadBuild":  45,
+                         "serverTag":  45,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1789758095,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  308,
+                         "serverFiles":  276,
+                         "launcher":  {
+                                          "sha":  "b589b1f",
+                                          "dirty":  0
+                                      },
+                         "mods":  {
+                                      "sha":  "be3b0f5",
+                                      "dirty":  0
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-18T04:37:06Z",
+                         "workshopVersion":  "1.0.34",
+                         "payloadBuild":  44,
+                         "serverTag":  44,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1789704393,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  307,
+                         "serverFiles":  275,
+                         "launcher":  {
+                                          "sha":  "c6ca011",
+                                          "dirty":  7
+                                      },
+                         "mods":  {
+                                      "sha":  "f427a39",
+                                      "dirty":  4
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-17T04:09:00Z",
+                         "workshopVersion":  "1.0.33",
+                         "payloadBuild":  43,
+                         "serverTag":  43,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1789617143,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  307,
+                         "serverFiles":  273,
+                         "launcher":  {
+                                          "sha":  "289d313",
+                                          "dirty":  68
+                                      },
+                         "mods":  {
+                                      "sha":  "4064d25",
+                                      "dirty":  338
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-15T14:31:17Z",
+                         "workshopVersion":  "1.0.32",
+                         "payloadBuild":  42,
+                         "serverTag":  42,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1789480939,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  307,
+                         "serverFiles":  270,
+                         "launcher":  {
+                                          "sha":  "e9158aa",
+                                          "dirty":  66
+                                      },
+                         "mods":  {
+                                      "sha":  "a0390f2",
+                                      "dirty":  234
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-15T02:35:13Z",
+                         "workshopVersion":  "1.0.31",
+                         "payloadBuild":  41,
+                         "serverTag":  41,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1789438457,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  307,
+                         "serverFiles":  270,
+                         "launcher":  {
+                                          "sha":  "e9158aa",
+                                          "dirty":  58
+                                      },
+                         "mods":  {
+                                      "sha":  "00e1cad",
+                                      "dirty":  234
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-14T19:02:33Z",
+                         "workshopVersion":  "1.0.30",
+                         "payloadBuild":  40,
+                         "serverTag":  40,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1789411166,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  305,
+                         "serverFiles":  267,
+                         "launcher":  {
+                                          "sha":  "fb5720a",
+                                          "dirty":  56
+                                      },
+                         "mods":  {
+                                      "sha":  "00e1cad",
+                                      "dirty":  238
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-13T02:01:01Z",
+                         "workshopVersion":  "1.0.29",
+                         "payloadBuild":  39,
+                         "serverTag":  39,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1789263155,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  265,
+                         "serverFiles":  202,
+                         "launcher":  {
+                                          "sha":  "48ded03",
+                                          "dirty":  2
+                                      },
+                         "mods":  {
+                                      "sha":  "468bbf1",
+                                      "dirty":  0
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-12T21:00:25Z",
+                         "workshopVersion":  "1.0.28",
+                         "payloadBuild":  38,
+                         "serverTag":  38,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1789245234,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  265,
+                         "serverFiles":  199,
+                         "launcher":  {
+                                          "sha":  "46b4541",
+                                          "dirty":  21
+                                      },
+                         "mods":  {
+                                      "sha":  "3316286",
+                                      "dirty":  92
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-12T06:40:00Z",
+                         "workshopVersion":  "1.0.27",
+                         "payloadBuild":  37,
+                         "serverTag":  37,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1789193975,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  265,
+                         "serverFiles":  199,
+                         "launcher":  {
+                                          "sha":  "46b4541",
+                                          "dirty":  17
+                                      },
+                         "mods":  {
+                                      "sha":  "e097204",
+                                      "dirty":  60
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-11T01:21:26Z",
+                         "workshopVersion":  "1.0.26",
+                         "payloadBuild":  36,
+                         "serverTag":  36,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1789088505,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  251,
+                         "serverFiles":  197,
+                         "launcher":  {
+                                          "sha":  "4d63da6",
+                                          "dirty":  24
+                                      },
+                         "mods":  {
+                                      "sha":  "b1b257c",
+                                      "dirty":  896
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-10T03:35:24Z",
+                         "workshopVersion":  "1.0.24",
+                         "payloadBuild":  35,
+                         "serverTag":  35,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1789010282,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  248,
+                         "serverFiles":  197,
+                         "launcher":  {
+                                          "sha":  "54396da",
+                                          "dirty":  46
+                                      },
+                         "mods":  {
+                                      "sha":  "aa66b26",
+                                      "dirty":  820
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-07T20:58:12Z",
+                         "workshopVersion":  "1.0.23",
+                         "payloadBuild":  34,
+                         "serverTag":  34,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1788812660,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  243,
+                         "serverFiles":  194,
+                         "launcher":  {
+                                          "sha":  "54396da",
+                                          "dirty":  32
+                                      },
+                         "mods":  {
+                                      "sha":  "26cac4a",
+                                      "dirty":  709
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-07T05:16:09Z",
+                         "workshopVersion":  "1.0.22",
+                         "payloadBuild":  33,
+                         "serverTag":  33,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1788756667,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  239,
+                         "serverFiles":  190,
+                         "launcher":  {
+                                          "sha":  "54396da",
+                                          "dirty":  22
+                                      },
+                         "mods":  {
+                                      "sha":  "26cac4a",
+                                      "dirty":  515
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-05T23:26:04Z",
+                         "workshopVersion":  "1.0.21",
+                         "payloadBuild":  32,
+                         "serverTag":  32,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1788649730,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  239,
+                         "serverFiles":  189,
+                         "launcher":  {
+                                          "sha":  "54396da",
+                                          "dirty":  16
+                                      },
+                         "mods":  {
+                                      "sha":  "26cac4a",
+                                      "dirty":  401
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-05T02:36:28Z",
+                         "workshopVersion":  "1.0.20",
+                         "payloadBuild":  32,
+                         "serverTag":  32,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1788574856,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  239,
+                         "serverFiles":  189,
+                         "launcher":  {
+                                          "sha":  "54396da",
+                                          "dirty":  14
+                                      },
+                         "mods":  {
+                                      "sha":  "26cac4a",
+                                      "dirty":  336
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-03T20:42:14Z",
+                         "workshopVersion":  "1.0.19",
+                         "payloadBuild":  31,
+                         "serverTag":  31,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1788467312,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  191,
+                         "serverFiles":  143,
+                         "launcher":  {
+                                          "sha":  "949f419",
+                                          "dirty":  14
+                                      },
+                         "mods":  {
+                                      "sha":  "26cac4a",
+                                      "dirty":  87
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-03T15:54:09Z",
+                         "workshopVersion":  "1.0.18",
+                         "payloadBuild":  30,
+                         "serverTag":  30,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1788449830,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  191,
+                         "serverFiles":  142,
+                         "launcher":  {
+                                          "sha":  "949f419",
+                                          "dirty":  3
+                                      },
+                         "mods":  {
+                                      "sha":  "26cac4a",
+                                      "dirty":  4
+                                  }
+                     },
+                     {
+                         "date":  "2026-09-03T03:40:29Z",
+                         "workshopVersion":  "1.0.17",
+                         "payloadBuild":  29,
+                         "serverTag":  29,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1788405475,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  191,
+                         "serverFiles":  142,
+                         "launcher":  {
+                                          "sha":  "39d9d60",
+                                          "dirty":  38
+                                      },
+                         "mods":  {
+                                      "sha":  "d7f48b4",
+                                      "dirty":  5
+                                  }
+                     },
+                     {
+                         "date":  "2026-08-31T22:54:03Z",
+                         "workshopVersion":  "1.0.16",
+                         "payloadBuild":  28,
+                         "serverTag":  28,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1788215536,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  182,
+                         "serverFiles":  126,
+                         "launcher":  {
+                                          "sha":  "39d9d60",
+                                          "dirty":  0
+                                      },
+                         "mods":  {
+                                      "sha":  "0de83ed",
+                                      "dirty":  6
+                                  }
+                     },
+                     {
+                         "date":  "2026-08-31T17:50:09Z",
+                         "workshopVersion":  "1.0.15",
+                         "payloadBuild":  27,
+                         "serverTag":  27,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1788197826,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  181,
+                         "serverFiles":  125,
+                         "launcher":  {
+                                          "sha":  "14d07f3",
+                                          "dirty":  15
+                                      },
+                         "mods":  {
+                                      "sha":  "e8fd93a",
+                                      "dirty":  124
+                                  }
+                     },
+                     {
+                         "date":  "2026-08-31T08:12:32Z",
+                         "workshopVersion":  "1.0.14",
+                         "payloadBuild":  26,
+                         "serverTag":  26,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1788154080,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  180,
+                         "serverFiles":  116,
+                         "launcher":  {
+                                          "sha":  "14d07f3",
+                                          "dirty":  8
+                                      },
+                         "mods":  {
+                                      "sha":  "e8fd93a",
+                                      "dirty":  25
+                                  }
+                     },
+                     {
+                         "date":  "2026-08-31T05:42:50Z",
+                         "workshopVersion":  "1.0.14",
+                         "payloadBuild":  25,
+                         "serverTag":  25,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1788154080,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  180,
+                         "serverFiles":  113,
+                         "launcher":  {
+                                          "sha":  "1ef551b",
+                                          "dirty":  12
+                                      },
+                         "mods":  {
+                                      "sha":  "e7037b2",
+                                      "dirty":  0
+                                  }
+                     },
+                     {
+                         "date":  "2026-08-31T05:42:22Z",
+                         "workshopVersion":  "1.0.14",
+                         "payloadBuild":  25,
+                         "serverTag":  25,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1788154080,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  180,
+                         "serverFiles":  113,
+                         "launcher":  {
+                                          "sha":  "1ef551b",
+                                          "dirty":  12
+                                      },
+                         "mods":  {
+                                      "sha":  "e7037b2",
+                                      "dirty":  0
+                                  }
+                     },
+                     {
+                         "date":  "2026-08-31T01:12:53Z",
+                         "workshopVersion":  "1.0.13",
+                         "payloadBuild":  24,
+                         "serverTag":  24,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1788137727,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  179,
+                         "serverFiles":  113,
+                         "launcher":  {
+                                          "sha":  "30da1e1",
+                                          "dirty":  0
+                                      },
+                         "mods":  {
+                                      "sha":  "5540e78",
+                                      "dirty":  0
+                                  }
+                     },
+                     {
+                         "date":  "2026-08-30T19:24:23Z",
+                         "workshopVersion":  "1.0.12",
+                         "payloadBuild":  23,
+                         "serverTag":  23,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1788117590,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  169,
+                         "serverFiles":  80,
+                         "launcher":  {
+                                          "sha":  "2688af9",
+                                          "dirty":  2
+                                      },
+                         "mods":  {
+                                      "sha":  "2228e08",
+                                      "dirty":  0
+                                  }
+                     },
+                     {
+                         "date":  "2026-08-30T16:40:19Z",
+                         "workshopVersion":  "1.0.11",
+                         "payloadBuild":  22,
+                         "serverTag":  22,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1788106856,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  169,
+                         "serverFiles":  80,
+                         "launcher":  {
+                                          "sha":  "2688af9",
+                                          "dirty":  0
+                                      },
+                         "mods":  {
+                                      "sha":  "6739131",
+                                      "dirty":  1
+                                  }
+                     },
+                     {
+                         "date":  "2026-08-30T04:52:43Z",
+                         "workshopVersion":  "1.0.10",
+                         "payloadBuild":  19,
+                         "serverTag":  19,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1788058936,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  168,
+                         "serverFiles":  79,
+                         "launcher":  {
+                                          "sha":  "50e509d",
+                                          "dirty":  3
+                                      },
+                         "mods":  {
+                                      "sha":  "71569b4",
+                                      "dirty":  0
+                                  }
+                     },
+                     {
+                         "date":  "2026-08-30T03:16:02Z",
+                         "workshopVersion":  "1.0.10",
+                         "payloadBuild":  18,
+                         "serverTag":  18,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1788058936,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  151,
+                         "serverFiles":  62,
+                         "launcher":  {
+                                          "sha":  "90d38a1",
+                                          "dirty":  0
+                                      },
+                         "mods":  {
+                                      "sha":  "042d267",
+                                      "dirty":  1
+                                  }
+                     },
+                     {
+                         "date":  "2026-08-29T23:32:41Z",
+                         "workshopVersion":  "1.0.9",
+                         "payloadBuild":  17,
+                         "serverTag":  17,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1788045801,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  151,
+                         "serverFiles":  61,
+                         "launcher":  {
+                                          "sha":  "5e1bbd6",
+                                          "dirty":  0
+                                      },
+                         "mods":  {
+                                      "sha":  "d6704d6",
+                                      "dirty":  4
+                                  }
+                     },
+                     {
+                         "date":  "2026-08-29T19:39:34Z",
+                         "workshopVersion":  "1.0.8",
+                         "payloadBuild":  16,
+                         "serverTag":  16,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1788031488,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  151,
+                         "serverFiles":  61,
+                         "launcher":  {
+                                          "sha":  "8c1b665",
+                                          "dirty":  0
+                                      },
+                         "mods":  {
+                                      "sha":  "a1d3497",
+                                      "dirty":  0
+                                  }
+                     },
+                     {
+                         "date":  "2026-08-29T16:17:59Z",
+                         "workshopVersion":  "1.0.6",
+                         "payloadBuild":  14,
+                         "serverTag":  14,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1788019075,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  151,
+                         "serverFiles":  61,
+                         "launcher":  {
+                                          "sha":  "76dc752",
+                                          "dirty":  3
+                                      },
+                         "mods":  {
+                                      "sha":  "cb1b928",
+                                      "dirty":  1
+                                  }
+                     },
+                     {
+                         "date":  "2026-08-29T06:30:33Z",
+                         "workshopVersion":  "1.0.5",
+                         "payloadBuild":  13,
+                         "serverTag":  13,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1787982919,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  144,
+                         "serverFiles":  60,
+                         "launcher":  {
+                                          "sha":  "8aab7b9",
+                                          "dirty":  0
+                                      },
+                         "mods":  {
+                                      "sha":  "62716e5",
+                                      "dirty":  3
+                                  }
+                     },
+                     {
+                         "date":  "2026-08-29T02:22:30Z",
+                         "workshopVersion":  "1.0.4",
+                         "payloadBuild":  12,
+                         "serverTag":  12,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1787971525,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  134,
+                         "serverFiles":  55,
+                         "launcher":  {
+                                          "sha":  "815937b",
+                                          "dirty":  2
+                                      },
+                         "mods":  {
+                                      "sha":  "5754adb",
+                                      "dirty":  3
+                                  }
+                     },
+                     {
+                         "date":  "2026-08-28T19:40:32Z",
+                         "workshopVersion":  "1.0.3",
+                         "payloadBuild":  11,
+                         "serverTag":  11,
+                         "workshopItem":  [
+                                              "3788277235"
+                                          ],
+                         "workshopUpdated":  1787943799,
+                         "builtAgainstJar":  "80e405a4bfc42f6072e75b3735f458a6514143da011d3226007ded305a442f44",
+                         "clientFiles":  130,
+                         "serverFiles":  55,
+                         "launcher":  {
+                                          "sha":  "8fe622e",
+                                          "dirty":  28
+                                      },
+                         "mods":  {
+                                      "sha":  "70d0e1c",
+                                      "dirty":  273
+                                  }
+                     }
+                 ]
+}
