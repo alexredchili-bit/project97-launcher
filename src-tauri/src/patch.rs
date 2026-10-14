@@ -1,3 +1,4 @@
+use crate::bootstrap;
 use crate::config;
 use crate::error::{Error, Result};
 use crate::install;
@@ -30,6 +31,10 @@ pub fn repair(st: &mut State) -> Result<bool> {
         && (st.active_patch.is_some() || config::workshop_override_active_path().is_file())
     {
         return Err(Error::GameAlreadyRunning);
+    }
+
+    if let Err(e) = bootstrap::disable_in_default_mods() {
+        session_log::log("restore", &format!("could not disable the launcher mod: {e}"));
     }
 
     let Some(active) = st.active_patch.clone() else {

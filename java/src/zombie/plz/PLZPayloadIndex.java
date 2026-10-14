@@ -6,6 +6,7 @@ public final class PLZPayloadIndex {
     }
 
     public static final String[] CLIENT = {
+        "org.lwjglx.input.Controllers",
         "se.krka.kahlua.j2se.J2SEPlatform",
         "zombie.MapCollisionData",
         "zombie.ZomboidFileSystem",
@@ -150,6 +151,7 @@ public final class PLZPayloadIndex {
         "zombie.plz.PLZUtilities",
         "zombie.plz.PLZVariableSync",
         "zombie.plz.PLZVehicleAccess",
+        "zombie.plz.PLZVehicleDamageWatch",
         "zombie.plz.PLZVehicleWatch",
         "zombie.plz.PLZVoice",
         "zombie.plz.PLZVoiceChanger",

@@ -14,6 +14,7 @@ import zombie.UsedFromLua;
 import zombie.WorldSoundManager;
 import zombie.Lua.LuaEventManager;
 import zombie.plz.PLZDoorAccess;
+import zombie.plz.PLZDoorSyncGate;
 import zombie.plz.PLZGatedGrid;
 import zombie.plz.PLZObjectDamage;
 import zombie.audio.parameters.ParameterMeleeHitSurface;
@@ -110,6 +111,8 @@ public class IsoDoor extends IsoObject implements BarricadeAble, Thumpable, IHas
     private short lastPlayerOnlineId = -1;
     private boolean wasTryingToggleLockedDoor;
     private boolean wasTryingToggleBarricadedDoor;
+    private long plzLockFlipMs;
+    private long plzLockFlipBy;
     private static final ColorInfo stCol = new ColorInfo();
     KahluaTable table;
     public static final Vector2 tempo = new Vector2();
@@ -1794,7 +1797,10 @@ public class IsoDoor extends IsoObject implements BarricadeAble, Thumpable, IHas
     }
 
     private void plzTellSenderTheTruth() {
-        UdpConnection connection = GameServer.getConnectionByPlayerOnlineID(this.lastPlayerOnlineId);
+        this.plzTellTheTruth(GameServer.getConnectionByPlayerOnlineID(this.lastPlayerOnlineId));
+    }
+
+    private void plzTellTheTruth(UdpConnection connection) {
         if (connection == null) {
             return;
         }
@@ -1837,6 +1843,41 @@ public class IsoDoor extends IsoObject implements BarricadeAble, Thumpable, IHas
         }
 
         return !this.plzSenderMayUnlock();
+    }
+
+    private boolean plzSyncChangesNothing(boolean bOpen, boolean bLocked, boolean bLockedByKey, int health, ArrayList<NetObject> doorParts) {
+        if (!PLZDoorSyncGate.changesNothing(this.isOpen(), this.locked, this.lockedByKey, this.health, bOpen, bLocked, bLockedByKey, health)) {
+            return false;
+        }
+
+        for (NetObject doorPart : doorParts) {
+            IsoObject obj = doorPart.getObject();
+            if (obj instanceof IsoDoor door) {
+                if (!PLZDoorSyncGate.partChangesNothing(door.isOpen(), door.locked, door.lockedByKey, bOpen, bLockedByKey)) {
+                    return false;
+                }
+            } else if (obj instanceof IsoThumpable thumpable) {
+                if (!PLZDoorSyncGate.partChangesNothing(thumpable.open, thumpable.isLocked(), thumpable.isLockedByKey(), bOpen, bLockedByKey)) {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void plzStampLockFlip(ArrayList<NetObject> doorParts, long nowMs, long sender) {
+        this.plzLockFlipMs = nowMs;
+        this.plzLockFlipBy = sender;
+
+        for (NetObject doorPart : doorParts) {
+            if (doorPart.getObject() instanceof IsoDoor door) {
+                door.plzLockFlipMs = nowMs;
+                door.plzLockFlipBy = sender;
+            }
+        }
     }
 
     @Override
@@ -1946,6 +1987,30 @@ public class IsoDoor extends IsoObject implements BarricadeAble, Thumpable, IHas
                         bLocked = this.locked;
                         bLockedByKey = this.lockedByKey;
                         this.plzTellSenderTheTruth();
+                    }
+
+                    if (GameServer.server) {
+                        boolean flipsLock = bLocked != this.locked || bLockedByKey != this.lockedByKey;
+                        long now = System.currentTimeMillis();
+                        long sender = source == null ? -1L : source.getConnectedGUID();
+                        if (flipsLock && !doorParts.isEmpty()
+                            && PLZDoorSyncGate.holdsLockFlip(this.plzLockFlipMs, this.plzLockFlipBy, now, sender)) {
+                            bOpen = this.isOpen();
+                            bLocked = this.locked;
+                            bLockedByKey = this.lockedByKey;
+                            flipsLock = false;
+                            this.plzTellTheTruth(source);
+                            PLZDoorSyncGate.countHeld();
+                        }
+
+                        if (this.plzSyncChangesNothing(bOpen, bLocked, bLockedByKey, health, doorParts)) {
+                            PLZDoorSyncGate.countDropped();
+                            return;
+                        }
+
+                        if (flipsLock) {
+                            this.plzStampLockFlip(doorParts, now, sender);
+                        }
                     }
 
                     boolean wasLocked = this.locked && !bLocked;
@@ -3112,7 +3177,7 @@ public class IsoDoor extends IsoObject implements BarricadeAble, Thumpable, IHas
                     } else {
                         boolean open = door == null ? thump.open : door.isOpen();
                         if (!open) {
-                            return ddIndex;
+                            return ddIndex <= 4 ? ddIndex : -1;
                         } else {
                             return ddIndex >= 5 ? ddIndex - 4 : -1;
                         }

@@ -474,17 +474,47 @@ Events.OnConnected.Add(onConnected)
 Events.OnGameStart.Add(writeRole)
 "#;
 
+fn default_mods_path() -> std::path::PathBuf {
+    config::zomboid_home().join("mods").join("default.txt")
+}
+
+fn is_launcher_entry(line: &str) -> bool {
+    line.trim()
+        .strip_prefix("mod")
+        .and_then(|rest| rest.trim().strip_prefix('='))
+        .map(str::trim)
+        == Some("PLZLauncher,")
+}
+
+fn without_launcher_entry(text: &str) -> Option<String> {
+    if !text.lines().any(is_launcher_entry) {
+        return None;
+    }
+    Some(
+        text.split_inclusive('\n')
+            .filter(|line| !is_launcher_entry(line))
+            .collect(),
+    )
+}
+
+// default.txt is the player's global mod list: left enabled, the mod follows them into
+// solo saves and into the mod list of any co-op game they host.
+pub fn disable_in_default_mods() -> Result<()> {
+    let path = default_mods_path();
+    let Ok(text) = fs::read_to_string(&path) else {
+        return Ok(());
+    };
+    match without_launcher_entry(&text) {
+        Some(cleaned) => state::write_no_bom(&path, &cleaned),
+        None => Ok(()),
+    }
+}
+
 fn enable_in_default_mods() -> Result<()> {
-    let path = config::zomboid_home().join("mods").join("default.txt");
+    let path = default_mods_path();
     let mut text = fs::read_to_string(&path)
         .unwrap_or_else(|_| "VERSION = 1,\n\nmods\n{\n}\n\nmaps\n{\n}\n".to_string());
-    if text.lines().any(|line| {
-        line.trim()
-            .strip_prefix("mod")
-            .and_then(|rest| rest.trim().strip_prefix('='))
-            .map(str::trim)
-            == Some("PLZLauncher,")
-    }) {
+    if text.lines().any(is_launcher_entry) {
         return Ok(());
     }
 
@@ -719,7 +749,28 @@ pub fn explain(result: &JoinResult) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{explain, parse_join_result, BOOTSTRAP_LUA, REASON_TRANSLATIONS};
+    use super::{
+        explain, parse_join_result, without_launcher_entry, BOOTSTRAP_LUA, REASON_TRANSLATIONS,
+    };
+
+    #[test]
+    fn the_launcher_entry_is_taken_back_out_of_the_mod_list() {
+        let crlf = "VERSION = 1,\r\n\r\nmods\r\n{\r\n    mod = Horse,\r\n    mod = PLZLauncher,\n}\r\n\r\nmaps\r\n{\r\n}\r\n";
+        assert_eq!(
+            without_launcher_entry(crlf).as_deref(),
+            Some("VERSION = 1,\r\n\r\nmods\r\n{\r\n    mod = Horse,\r\n}\r\n\r\nmaps\r\n{\r\n}\r\n")
+        );
+        assert_eq!(
+            without_launcher_entry("mods\n{\n    mod = PLZLauncher,\n}\n").as_deref(),
+            Some("mods\n{\n}\n")
+        );
+    }
+
+    #[test]
+    fn a_mod_list_without_the_launcher_entry_is_left_alone() {
+        assert_eq!(without_launcher_entry("mods\n{\n    mod = PLZLauncherExtras,\n}\n"), None);
+        assert_eq!(without_launcher_entry("mods\n{\n}\n"), None);
+    }
 
     #[test]
     fn bootstrap_uses_the_saved_account_and_not_the_popup() {

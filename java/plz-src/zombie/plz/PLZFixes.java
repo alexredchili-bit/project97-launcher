@@ -34,6 +34,7 @@ public final class PLZFixes {
     public static final String ACTION_GROUP_SYNC = "actionGroupSync";
     public static final String ACTION_STATE_CONTAINER = "actionStateContainer";
     public static final String ADVANCED_ANIMATOR_FOLDERS = "advancedAnimatorFolders";
+    public static final String ANIMAL_AWAY_CLAMP = "animalAwayClamp";
     public static final String ANIMAL_CLIMB_STAIRS_GUARD = "animalClimbStairsGuard";
     public static final String ANIMAL_REATTACH = "animalReattach";
     public static final String ANIMAL_REGISTRY = "animalRegistry";
@@ -63,6 +64,8 @@ public final class PLZFixes {
     public static final String HUTCH_DEATH_LOG = "hutchDeathLog";
     public static final String HUTCH_GAME_TIME = "hutchGameTime";
     public static final String HUTCH_META_RESIDENTS = "hutchMetaResidents";
+    public static final String HUTCH_NEST_RELOAD = "hutchNestReload";
+    public static final String HUTCH_SEAT_OR_RELEASE = "hutchSeatOrRelease";
     public static final String NET_TIMED_ACTION = "netTimedAction";
     public static final String OBJECT_ID_ALLOCATE = "objectIdAllocate";
     public static final String PM_CHAT_START = "pmChatStart";

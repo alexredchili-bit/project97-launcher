@@ -57,6 +57,8 @@ public class IsoHutch extends IsoObject {
     public HashMap<Integer, IsoAnimal> animalInside = new HashMap<>();
     public HashMap<Integer, IsoDeadBody> deadBodiesInside = new HashMap<>();
     public ArrayList<IsoAnimal> animalOutside = new ArrayList<>();
+    // PLZ: birds the hutch had no perch for, let out on the next update instead of dropped.
+    private final ArrayList<IsoAnimal> plzUnseated = new ArrayList<>();
     public String type;
     public int lastHourCheck = -1;
     private float exitTimer;
@@ -269,6 +271,7 @@ public class IsoHutch extends IsoObject {
     public void update() {
         if (!this.isSlave() && this.isExistInTheWorld()) {
             if (this.isOwner()) {
+                this.plzReleaseUnseated();
                 this.sendUpdate = this.updateAnimal.Check() || this.animalInsideSize != this.animalInside.size();
                 boolean hourGrow = false;
                 if (GameTime.getInstance().getHour() != this.lastHourCheck) {
@@ -859,6 +862,8 @@ public class IsoHutch extends IsoObject {
             animal.getData().setPreferredHutchPosition(Rand.Next(0, this.getMaxAnimals()));
         }
 
+        this.plzSeatOnAFreePerch(animal);
+
         if (this.animalInside.get(animal.getData().getPreferredHutchPosition()) == null) {
             this.animalInside.put(animal.getData().getPreferredHutchPosition(), animal);
             animal.hutch = this;
@@ -872,7 +877,80 @@ public class IsoHutch extends IsoObject {
             this.tryRemoveAnimalFromWorld(animal);
             return true;
         } else {
+            this.plzKeepUnseated(animal);
             return false;
+        }
+    }
+
+    private boolean plzPerchTaken(int pos) {
+        return this.animalInside.get(pos) != null || this.deadBodiesInside.get(pos) != null || this.checkNestBoxPrefPosition(pos);
+    }
+
+    // PLZ: vanilla gives up after 100 random picks, which can miss the last free perch.
+    private void plzSeatOnAFreePerch(IsoAnimal animal) {
+        if (!PLZFixes.on(PLZFixes.HUTCH_SEAT_OR_RELEASE) || !this.plzPerchTaken(animal.getData().getPreferredHutchPosition())) {
+            return;
+        }
+
+        for (int pos = 0; pos < this.getMaxAnimals(); pos++) {
+            if (!this.plzPerchTaken(pos)) {
+                animal.getData().setPreferredHutchPosition(pos);
+                PLZFixes.hit(PLZFixes.HUTCH_SEAT_OR_RELEASE);
+                return;
+            }
+        }
+    }
+
+    // PLZ: every caller but the walk-in ignores a false, and the bird is then in no list at all.
+    private void plzKeepUnseated(IsoAnimal animal) {
+        if (GameClient.client || !PLZFixes.on(PLZFixes.HUTCH_SEAT_OR_RELEASE)) {
+            return;
+        }
+
+        // One that walked up is still standing outside and needs nothing.
+        if (animal.getCurrentSquare() != null || this.plzUnseated.contains(animal)) {
+            return;
+        }
+
+        this.plzUnseated.add(animal);
+    }
+
+    private void plzReleaseUnseated() {
+        if (this.plzUnseated.isEmpty()) {
+            return;
+        }
+
+        IsoGridSquare spot = IsoWorld.instance
+            .currentCell
+            .getGridSquare(this.savedX + this.getEnterSpotX(), this.savedY + this.getEnterSpotY(), this.savedZ);
+        if (spot == null) {
+            return;
+        }
+
+        for (int i = this.plzUnseated.size() - 1; i >= 0; i--) {
+            IsoAnimal animal = this.plzUnseated.remove(i);
+            if (animal.isDead() || animal.getCurrentSquare() != null || this.animalInside.containsValue(animal)) {
+                continue;
+            }
+
+            animal.nestBox = -1;
+            // releaseAnimal clears the perch this names, and a stale one belongs to another bird.
+            animal.getData().setHutchPosition(-1);
+            this.releaseAnimal(spot, animal);
+            this.plzTellLua("AnimalMoveLog", "onHutchUnseated", animal);
+            PLZFixes.hit(PLZFixes.HUTCH_SEAT_OR_RELEASE);
+        }
+    }
+
+    private void plzTellLua(String module, String name, IsoAnimal animal) {
+        try {
+            Object table = LuaManager.env == null ? null : LuaManager.env.rawget(module);
+            Object function = table instanceof KahluaTableImpl lua ? lua.rawget(name) : null;
+            if (function != null) {
+                LuaManager.caller.protectedCallVoid(LuaManager.thread, function, animal, this);
+            }
+        } catch (Throwable failure) {
+            DebugType.Animal.warn("PLZ hutch report failed: " + failure);
         }
     }
 
@@ -1278,6 +1356,12 @@ public class IsoHutch extends IsoObject {
                 this.animal = new IsoAnimal(IsoWorld.instance.getCell());
                 this.animal.load(input, worldVersion);
                 this.animal.nestBox = this.index;
+                if (!GameClient.client && PLZFixes.on(PLZFixes.HUTCH_NEST_RELOAD)) {
+                    // PLZ: the perch loader does both of these for its birds, this one did neither.
+                    this.animal.removeFromSquare();
+                    this.animal.hutch = IsoHutch.this;
+                    PLZFixes.hit(PLZFixes.HUTCH_NEST_RELOAD);
+                }
             }
         }
     }

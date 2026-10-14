@@ -218,6 +218,8 @@ public class IsoAnimal extends IsoPlayer implements IAnimalVisual {
     public long plzNetSeenMs;
     public long plzNetAskedMs;
     public int plzNetAsks;
+    // PLZ: world-age hour this animal last ran live, -1 until it has.
+    public double plzLiveHour = -1.0;
 
     public IsoAnimal(IsoCell cell) {
         this(cell, 0, 0, 0, null, "");
@@ -387,6 +389,10 @@ public class IsoAnimal extends IsoPlayer implements IAnimalVisual {
 
         if (GameServer.server && zombie.plz.PLZFixes.on(zombie.plz.PLZFixes.ANIMAL_REGISTRY)) {
             plzEnsureMapEntry();
+        }
+
+        if (!GameClient.client) {
+            this.plzLiveHour = GameTime.getInstance().getWorldAgeHours();
         }
 
         if (this.isOnHook()) {
@@ -1896,7 +1902,30 @@ public class IsoAnimal extends IsoPlayer implements IAnimalVisual {
         }
     }
 
+    // PLZ: a zone's clock is not this animal's. Connected zones disagree, and one return is simulated more than once.
+    private int plzAwayHours(int hours) {
+        if (GameClient.client || !zombie.plz.PLZFixes.on(zombie.plz.PLZFixes.ANIMAL_AWAY_CLAMP)) {
+            return hours;
+        }
+
+        double now = GameTime.getInstance().getWorldAgeHours();
+        double seen = this.plzLiveHour;
+        this.plzLiveHour = now;
+        if (seen < 0.0) {
+            return hours;
+        }
+
+        int own = (int)Math.max(0.0, now - seen);
+        if (own >= hours) {
+            return hours;
+        }
+
+        zombie.plz.PLZFixes.hit(zombie.plz.PLZFixes.ANIMAL_AWAY_CLAMP);
+        return own;
+    }
+
     public void updateStatsAway(int hours) {
+        hours = this.plzAwayHours(hours);
         this.fromMeta = false;
         if (!this.isWild()) {
             this.zoneCheckTimer = 0.0F;

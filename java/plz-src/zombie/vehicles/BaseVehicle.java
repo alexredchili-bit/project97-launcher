@@ -138,6 +138,7 @@ import zombie.iso.objects.RenderEffectType;
 import zombie.iso.objects.interfaces.Thumpable;
 import zombie.iso.weather.ClimateManager;
 import zombie.plz.PLZVehicleAccess;
+import zombie.plz.PLZVehicleDamageWatch;
 import zombie.plz.PLZVehicleWatch;
 import zombie.network.ClientServerMap;
 import zombie.network.GameClient;
@@ -4956,6 +4957,7 @@ public final class BaseVehicle
             SoundManager.instance.PlayWorldSound(this.getCrashSound(delta), this.square, 1.0F, 20.0F, 1.0F, true);
             GameClient.instance.sendClientCommandV(null, "vehicle", "crash", "vehicle", this.getId(), "amount", delta, "front", front);
         } else {
+            PLZVehicleDamageWatch.onCrash(this, delta);
             float modifier = 1.3F;
             float dmg = delta;
             switch (SandboxOptions.instance.carDamageOnImpact.getValue()) {
@@ -11780,6 +11782,9 @@ public final class BaseVehicle
                 }
             }
 
+            // PLZ: glass takes the hit on its own part, which may be a child of the one that was struck.
+            VehiclePart plzStruck = vehiclePart.light == null && window != null && window.isHittable() ? window.getPart() : vehiclePart;
+            int plzBefore = plzStruck.getCondition();
             float calculatedDamage;
             if (vehiclePart.light != null) {
                 calculatedDamage = CombatManager.getInstance()
@@ -11823,6 +11828,7 @@ public final class BaseVehicle
                     damage,
                     calculatedDamage
                 );
+            PLZVehicleDamageWatch.onPartHit(this, isoGameCharacter, weapon, plzStruck, plzBefore, plzStruck.getCondition());
         }
     }
 

@@ -15,11 +15,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 /// Made by tools/press_keys.py on the bot host; empty turns the mirror off.
-pub const PRESS_PUBLIC_KEY_HEX: &str = "113a17021418b4ae942c66987ab88eaa5b1a0f0a0827e74f19a60cee2eed393d";
+pub const PRESS_PUBLIC_KEY_HEX: &str = "56f085216d6703d3eb8bdc0ff41855a297bccbf2585180357d943fef68058e13";
 
 const INDEX_VERSION: u32 = 1;
 const ICON_SIZE: (u32, u32) = (32, 32);
-const PAGE_SIZES: [(u32, u32); 4] = [(724, 1024), (768, 1024), (1024, 1600), ICON_SIZE];
+const PAGE_SIZES: [(u32, u32); 4] = [(724, 1024), (768, 1024), (1024, 1365), ICON_SIZE];
 const MAX_INDEX_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_PAGES: usize = 100_000;
 const MAX_LIBRARY_BYTES: u64 = 16 * 1024 * 1024 * 1024;
