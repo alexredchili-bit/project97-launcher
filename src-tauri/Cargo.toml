@@ -1,6 +1,6 @@
 [package]
 name = "project97-launcher"
-version = "1.0.0"
+version = "1.0.1"
 description = "Project '97 Launcher"
 authors = ["AlexVDefi"]
 edition = "2021"

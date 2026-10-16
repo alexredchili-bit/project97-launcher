@@ -36,7 +36,7 @@
         {
             "id": "3730833846",
             "name": "'76 Chrysler New Yorker",
-            "timeUpdated": 1781027625
+            "timeUpdated": 1792087262
         },
         {
             "id": "3726526329",
@@ -91,7 +91,7 @@
         {
             "id": "3614034284",
             "name": "'85 Chevrolet Step-Van",
-            "timeUpdated": 1769110233
+            "timeUpdated": 1792087176
         },
         {
             "id": "3601417745",
@@ -251,7 +251,7 @@
         {
             "id": "3161951724",
             "name": "'76 Chevrolet K Series",
-            "timeUpdated": 1789115226
+            "timeUpdated": 1792087220
         },
         {
             "id": "3152529790",
@@ -816,7 +816,7 @@
         {
             "id": "3807099610",
             "name": "Hug The Plushie!",
-            "timeUpdated": 1791900411
+            "timeUpdated": 1792065231
         },
         {
             "id": "3453879909",
@@ -825,8 +825,13 @@
         },
         {
             "id": "3456675747",
-            "name": "[B42.13+ MP] Skateboard!",
+            "name": "[B42.20+ MP] Skateboard!",
             "timeUpdated": 1791956786
+        },
+        {
+            "id": "3348522135",
+            "name": "Bad Habit (B41 / B42.12 - 42.20+)",
+            "timeUpdated": 1789167731
         }
     ],
     "newsUrl": "https://files.project97.life/news.json",

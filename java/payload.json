@@ -11,10 +11,7 @@
       "mirrorFrom": "../../mods/RPMods/java-patch/src"
     }
   ],
-  "undeclared": [
-    "zombie/entity/components/fluids/FluidContainer.java",
-    "zombie/plz/PLZDrinkName.java"
-  ],
+  "undeclared": [],
   "client": [
     "org/lwjglx/input/Controllers",
     "se/krka/kahlua/j2se/J2SEPlatform",
@@ -48,10 +45,12 @@
     "zombie/core/skinnedmodel/animation/AnimationPlayer",
     "zombie/core/skinnedmodel/model/ModelInstanceRenderData",
     "zombie/core/skinnedmodel/model/VehicleSubModelInstance",
+    "zombie/core/textures/ImageData",
     "zombie/core/textures/VideoTexture",
     "zombie/core/znet/SteamUGCDetails",
     "zombie/core/znet/SteamWorkshop",
     "zombie/entity/components/crafting/DryingCraftLogic",
+    "zombie/entity/components/fluids/FluidContainer",
     "zombie/entity/components/spriteconfig/SpriteConfig",
     "zombie/fileSystem/FileSystemImpl",
     "zombie/input/AimingReticle",
@@ -113,6 +112,7 @@
     "zombie/plz/PLZChunkRate",
     "zombie/plz/PLZDietScore",
     "zombie/plz/PLZDoorAccess",
+    "zombie/plz/PLZDrinkName",
     "zombie/plz/PLZDowned",
     "zombie/plz/PLZEventSkip",
     "zombie/plz/PLZFixes",

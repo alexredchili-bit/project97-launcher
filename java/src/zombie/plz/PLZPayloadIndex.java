@@ -38,6 +38,7 @@ public final class PLZPayloadIndex {
         "zombie.core.skinnedmodel.animation.AnimationPlayer",
         "zombie.core.skinnedmodel.model.ModelInstanceRenderData",
         "zombie.core.skinnedmodel.model.VehicleSubModelInstance",
+        "zombie.core.textures.ImageData",
         "zombie.core.textures.VideoTexture",
         "zombie.core.znet.SteamUGCDetails",
         "zombie.core.znet.SteamWorkshop",
