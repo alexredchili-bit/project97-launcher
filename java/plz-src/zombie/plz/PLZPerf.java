@@ -62,8 +62,8 @@ public final class PLZPerf {
     /** Windows and glass doors bake like walls instead of drawing every frame. */
     public static final boolean WINDOWS_IN_CHUNK_TEXTURE = bool("windowsInChunkTexture", true);
 
-    /** Fences, railings and wall decorations bake in - about 3000 draws a frame at max zoom. */
-    public static final boolean TRANSLUCENT_TILES_IN_CHUNK_TEXTURE = bool("translucentTilesInChunkTexture", true);
+    /** Every Translucent tile bakes in, sofas and tables too; off because multi-tile seams then show checkerboard holes. */
+    public static final boolean TRANSLUCENT_TILES_IN_CHUNK_TEXTURE = bool("translucentTilesInChunkTexture", false);
 
     /** Hundredths of a tile a closed curtain draws nearer the camera than its tile geometry says,
      *  so a baked window never shows through it. North windows sit 0.017 tile in front. */
