@@ -103,6 +103,7 @@ public final class PLZPayloadIndex {
         "zombie.plz.PLZChecksumExempt",
         "zombie.plz.PLZChecksumExemptList",
         "zombie.plz.PLZChunkRate",
+        "zombie.plz.PLZClientVitals",
         "zombie.plz.PLZDietScore",
         "zombie.plz.PLZDoorAccess",
         "zombie.plz.PLZDowned",

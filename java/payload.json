@@ -110,6 +110,7 @@
     "zombie/plz/PLZChecksumExempt",
     "zombie/plz/PLZChecksumExemptList",
     "zombie/plz/PLZChunkRate",
+    "zombie/plz/PLZClientVitals",
     "zombie/plz/PLZDietScore",
     "zombie/plz/PLZDoorAccess",
     "zombie/plz/PLZDrinkName",
@@ -266,6 +267,7 @@
     "zombie/plz/PLZChecksumExempt",
     "zombie/plz/PLZChecksumExemptList",
     "zombie/plz/PLZChunkCrc",
+    "zombie/plz/PLZClientVitals",
     "zombie/plz/PLZConductWatch",
     "zombie/plz/PLZConnectWatch",
     "zombie/plz/PLZDietScore",
@@ -328,6 +330,7 @@
     "zombie/scripting/ScriptParser",
     "zombie/vehicles/BaseVehicle",
     "zombie/vehicles/VehiclePart",
+    "zombie/world/moddata/GlobalModData",
     "zombie/worldMap/WorldMapVisitedServer"
   ]
 }

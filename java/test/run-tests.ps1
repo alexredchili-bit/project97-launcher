@@ -60,7 +60,7 @@ if ($code -ne 0) {
 
 $failed = 0
 foreach ($test in @("zombie.network.PLZQueueConfigTest", "zombie.network.PLZSlotsTest", "zombie.network.LoginQueueReleaseTest",
-        "zombie.network.PLZJavaGateTest", "zombie.plz.PLZJavaGuardTest")) {
+        "zombie.network.PLZJavaGateTest", "zombie.plz.PLZJavaGuardTest", "zombie.network.PLZAccountsCredentialTest")) {
     "=== $test ==="
     $ErrorActionPreference = "Continue"
     # -Xmx256m/SerialGC: these tests need almost no heap, and the default G1 reservation fails

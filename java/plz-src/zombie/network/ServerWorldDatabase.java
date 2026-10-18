@@ -781,7 +781,7 @@ public class ServerWorldDatabase {
             || user.contains("?")
             || user.contains("\"")
             || user.trim().length() < 2
-            // PLZ: vanilla caps a username at 32. Everything else in this file is the jar verbatim.
+            // PLZ: vanilla caps a username at 32.
             || user.length() > 50) {
             return false;
         } else if (user.contains(nullChar)) {
@@ -1168,6 +1168,8 @@ public class ServerWorldDatabase {
 
             stat.close();
             result.authorized = true;
+            // PLZ: LoginPacket's binding needs this SteamID's BCrypt credential; hash it now, off the main loop.
+            PLZAccounts.prefetchCredential(steamIDstr);
         } catch (Exception ex) {
             DebugType.General.printException(ex, LogSeverity.Error);
         }

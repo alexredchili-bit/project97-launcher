@@ -209,7 +209,16 @@ public class GameEntityManager {
                         return;
                     }
 
-                    engine.addEntity(gameEntity);
+                    if (gameEntity.addedToEngine
+                        && !gameEntity.scheduledForEngineRemoval
+                        && !gameEntity.removingFromEngine
+                        && zombie.plz.PLZFixes.on(zombie.plz.PLZFixes.ENTITY_REREGISTER)) {
+                        zombie.plz.PLZFixes.hit(zombie.plz.PLZFixes.ENTITY_REREGISTER);
+                        DebugType.Entity.warn("PLZ: entity %s was still in the engine, re-linking its id only", gameEntity);
+                    } else {
+                        engine.addEntity(gameEntity);
+                    }
+
                     long entityNetID = gameEntity.getEntityNetID();
                     synchronized (idToEntityMap) {
                         idToEntityMap.put(entityNetID, gameEntity);
@@ -255,7 +264,18 @@ public class GameEntityManager {
 
                 if (stored != null) {
                     if (stored != gameEntity) {
-                        throw new RuntimeException("Stored entity mismatch");
+                        if (!zombie.plz.PLZFixes.on(zombie.plz.PLZFixes.ENTITY_ID_MISMATCH)) {
+                            throw new RuntimeException("Stored entity mismatch");
+                        }
+
+                        // Throwing here aborted ServerCell.Unload halfway and later wedged the server on reload.
+                        synchronized (idToEntityMap) {
+                            idToEntityMap.put(entityNetID, stored);
+                        }
+
+                        zombie.plz.PLZFixes.hit(zombie.plz.PLZFixes.ENTITY_ID_MISMATCH);
+                        DebugType.Entity.warn("PLZ: id %d belongs to %s, unregistering %s without it", entityNetID, stored, gameEntity);
+                        offloadToMeta = false;
                     }
 
                     engine.removeEntity(gameEntity);

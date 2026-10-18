@@ -5,6 +5,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.FutureTask;
 import zombie.core.Core;
 import zombie.core.secure.PZcrypt;
 import zombie.debug.DebugType;
@@ -12,6 +16,8 @@ import zombie.debug.LogSeverity;
 
 public final class PLZAccounts {
     private static final String CREDENTIAL_PREFIX = "PLZ-Steam-";
+    private static final ConcurrentHashMap<String, FutureTask<String>> credentials = new ConcurrentHashMap<>();
+    private static final ExecutorService hasher = Executors.newSingleThreadExecutor(PLZAccounts::hasherThread);
 
     private PLZAccounts() {
     }
@@ -102,6 +108,45 @@ public final class PLZAccounts {
     }
 
     public static String credentialFor(String steamId) {
+        FutureTask<String> task = credentialTask(steamId);
+        task.run();
+        try {
+            return task.get();
+        } catch (Exception e) {
+            credentials.remove(steamId, task);
+            DebugType.Multiplayer.printException(e, "PLZAccounts.credentialFor cache miss path failed", LogSeverity.Error);
+            return computeCredential(steamId);
+        }
+    }
+
+    // BCrypt cost 12 is ~180 ms; the Steam initiate callback lands ~1.4 s before LoginPacket, off the main loop.
+    public static void prefetchCredential(String steamId) {
+        if (steamId == null || steamId.isEmpty() || credentials.containsKey(steamId)) {
+            return;
+        }
+
+        hasher.execute(credentialTask(steamId));
+    }
+
+    static boolean isCached(String steamId) {
+        FutureTask<String> task = credentials.get(steamId);
+        return task != null && task.isDone();
+    }
+
+    static String computeCredential(String steamId) {
         return PZcrypt.hash(ServerWorldDatabase.encrypt(CREDENTIAL_PREFIX + steamId));
+    }
+
+    private static FutureTask<String> credentialTask(String steamId) {
+        FutureTask<String> fresh = new FutureTask<>(() -> computeCredential(steamId));
+        FutureTask<String> existing = credentials.putIfAbsent(steamId, fresh);
+        return existing != null ? existing : fresh;
+    }
+
+    private static Thread hasherThread(Runnable r) {
+        Thread t = new Thread(r, "PLZAccounts-hasher");
+        t.setDaemon(true);
+        t.setPriority(Thread.MIN_PRIORITY);
+        return t;
     }
 }

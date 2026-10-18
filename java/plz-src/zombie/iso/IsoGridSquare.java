@@ -7579,6 +7579,38 @@ public final class IsoGridSquare {
         PLZSoundProbe.sample();
     }
 
+    public static boolean plzVitalsAvailable() {
+        return zombie.plz.PLZClientVitals.isAvailable();
+    }
+
+    public static String plzVitalsFailure() {
+        return zombie.plz.PLZClientVitals.getFailure();
+    }
+
+    public static String plzVitalsKeys() {
+        return zombie.plz.PLZClientVitals.keys();
+    }
+
+    public static void plzVitalsStart(int intervalMs) {
+        zombie.plz.PLZClientVitals.start(intervalMs);
+    }
+
+    public static void plzVitalsStop() {
+        zombie.plz.PLZClientVitals.stop();
+    }
+
+    public static double plzVitalsGet(String key) {
+        return zombie.plz.PLZClientVitals.get(key);
+    }
+
+    public static String plzVitalsEnvironment() {
+        return zombie.plz.PLZClientVitals.getEnvironment();
+    }
+
+    public static String plzVitalsCrashEvidence() {
+        return zombie.plz.PLZClientVitals.getCrashEvidence();
+    }
+
     public static boolean plzSoundProbeAvailable() {
         return PLZSoundProbe.isAvailable();
     }

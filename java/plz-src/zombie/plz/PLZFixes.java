@@ -31,6 +31,9 @@ import zombie.debug.DebugLog;
 public final class PLZFixes {
     public static final String ACTION_CANCEL = "actionCancel";
     public static final String EVENT_SKIP = "eventSkip";
+    public static final String ENTITY_ID_MISMATCH = "entityIdMismatch";
+    public static final String ENTITY_REREGISTER = "entityReregister";
+    public static final String SERVER_CELL_LOAD_GUARD = "serverCellLoadGuard";
     public static final String ACTION_GROUP_SYNC = "actionGroupSync";
     public static final String ACTION_STATE_CONTAINER = "actionStateContainer";
     public static final String ADVANCED_ANIMATOR_FOLDERS = "advancedAnimatorFolders";
@@ -60,6 +63,7 @@ public final class PLZFixes {
     public static final String CORPSE_ITEM_BYTES = "corpseItemBytes";
     public static final String FITNESS_CURRENT_EXERCISE = "fitnessCurrentExercise";
     public static final String GENERAL_ACTION_REJECT = "generalActionReject";
+    public static final String GLOBAL_MOD_DATA_SAVE = "globalModDataSave";
     public static final String GRID_SQUARE_ROOM_GUARD = "gridSquareRoomGuard";
     public static final String HUTCH_DEATH_LOG = "hutchDeathLog";
     public static final String HUTCH_GAME_TIME = "hutchGameTime";

@@ -489,9 +489,27 @@ public class ServerMap {
                 try {
                     ServerLOS.instance.suspend();
 
+                    boolean guarded = zombie.plz.PLZFixes.on(zombie.plz.PLZFixes.SERVER_CELL_LOAD_GUARD);
                     for (int x = 0; x < ServerMap.ServerCell.loaded2.size(); x++) {
                         ServerMap.ServerCell cell = ServerMap.ServerCell.loaded2.get(x);
-                        if (cell.Load2()) {
+                        if (!guarded) {
+                            if (cell.Load2()) {
+                                x--;
+                                this.toLoad.remove(cell);
+                            }
+                            continue;
+                        }
+
+                        try {
+                            if (cell.Load2()) {
+                                x--;
+                                this.toLoad.remove(cell);
+                            }
+                        } catch (RuntimeException e) {
+                            // Vanilla leaves a throwing cell in loaded2 and retries it every tick, freezing the world for good.
+                            zombie.plz.PLZFixes.hit(zombie.plz.PLZFixes.SERVER_CELL_LOAD_GUARD);
+                            DebugType.General.printException(e, "PLZ: cell " + cell.wx + "," + cell.wy + " failed to load and was dropped from the load queue", LogSeverity.Error);
+                            ServerMap.ServerCell.loaded2.remove(x);
                             x--;
                             this.toLoad.remove(cell);
                         }
@@ -962,7 +980,18 @@ public class ServerMap {
             for (int x = 0; x < 8; x++) {
                 for (int y = 0; y < 8; y++) {
                     if (this.chunks[x][y] != null) {
-                        this.chunks[x][y].doLoadGridsquare();
+                        if (!zombie.plz.PLZFixes.on(zombie.plz.PLZFixes.SERVER_CELL_LOAD_GUARD)) {
+                            this.chunks[x][y].doLoadGridsquare();
+                            continue;
+                        }
+
+                        try {
+                            this.chunks[x][y].doLoadGridsquare();
+                        } catch (RuntimeException e) {
+                            zombie.plz.PLZFixes.hit(zombie.plz.PLZFixes.SERVER_CELL_LOAD_GUARD);
+                            IsoChunk failed = this.chunks[x][y];
+                            DebugType.General.printException(e, "PLZ: chunk " + failed.wx + "," + failed.wy + " failed to load, loading the rest of the cell", LogSeverity.Error);
+                        }
                     }
                 }
             }
