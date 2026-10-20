@@ -791,7 +791,7 @@
         {
             "id": "3543325992",
             "name": "PZK Vehicle Pack Community Expansion",
-            "timeUpdated": 1791627312
+            "timeUpdated": 1792318434
         },
         {
             "id": "3800854843",
@@ -816,7 +816,7 @@
         {
             "id": "3807099610",
             "name": "Hug The Plushie!",
-            "timeUpdated": 1792240260
+            "timeUpdated": 1792417037
         },
         {
             "id": "3453879909",
@@ -837,6 +837,11 @@
             "id": "3709126801",
             "name": "Nature's Call [B42.16+ MP]",
             "timeUpdated": 1792130730
+        },
+        {
+            "id": "2795036124",
+            "name": "More Plushies",
+            "timeUpdated": 1791755763
         }
     ],
     "newsUrl": "https://files.project97.life/news.json",

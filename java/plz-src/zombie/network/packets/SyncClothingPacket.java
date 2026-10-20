@@ -218,14 +218,16 @@ public class SyncClothingPacket implements INetworkPacket {
 
                 if (itemForAdd != null) {
                     this.playerId.getPlayer().getWornItems().setItem(item.location, itemForAdd);
-                    if (this.playerId.getPlayer().remote) {
-                        itemForAdd.getVisual().setTint(item.tint);
-                        itemForAdd.getVisual().setBaseTexture(item.baseTexture);
-                        itemForAdd.getVisual().setTextureChoice(item.textureChoice);
-                        this.playerId.getPlayer().getItemVisuals().add(itemForAdd.getVisual());
+                    // PLZ: getVisual() is null for a worn bag or an unloaded ClothingItem; HumanVisual.GetMask throws on a null entry every frame.
+                    ItemVisual addVisual = this.playerId.getPlayer().remote ? itemForAdd.getVisual() : null;
+                    if (addVisual != null) {
+                        addVisual.setTint(item.tint);
+                        addVisual.setBaseTexture(item.baseTexture);
+                        addVisual.setTextureChoice(item.textureChoice);
+                        this.playerId.getPlayer().getItemVisuals().add(addVisual);
                     }
                 }
-            } else if (this.playerId.getPlayer().remote) {
+            } else if (this.playerId.getPlayer().remote && wornItem.getVisual() != null) {
                 this.playerId.getPlayer().getItemVisuals().add(wornItem.getVisual());
             }
         }

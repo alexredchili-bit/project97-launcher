@@ -9,7 +9,10 @@ import zombie.GameTime;
 import zombie.IndieGL;
 import zombie.UsedFromLua;
 import zombie.WorldSoundManager;
+import se.krka.kahlua.integration.LuaReturn;
+import se.krka.kahlua.vm.KahluaTable;
 import zombie.Lua.LuaEventManager;
+import zombie.Lua.LuaManager;
 import zombie.audio.BaseSoundEmitter;
 import zombie.audio.parameters.ParameterMeleeHitSurface;
 import zombie.characters.IsoGameCharacter;
@@ -25,6 +28,11 @@ import zombie.core.opengl.ShaderProgram;
 import zombie.core.random.Rand;
 import zombie.core.textures.ColorInfo;
 import zombie.core.textures.Texture;
+import zombie.debug.DebugLog;
+import zombie.erosion.ErosionData;
+import zombie.erosion.ErosionMain;
+import zombie.erosion.ErosionRegions;
+import zombie.erosion.categories.ErosionCategory;
 import zombie.debug.DebugOptions;
 import zombie.debug.LineDrawer;
 import zombie.inventory.types.HandWeapon;
@@ -56,6 +64,7 @@ import zombie.iso.sprite.IsoSpriteManager;
 import zombie.iso.weather.ClimateManager;
 import zombie.network.GameClient;
 import zombie.network.GameServer;
+import zombie.plz.PLZFixes;
 import zombie.scripting.objects.CharacterProfession;
 import zombie.scripting.objects.CharacterTrait;
 import zombie.scripting.objects.ItemKey;
@@ -207,8 +216,89 @@ public class IsoTree extends IsoObject implements IHasHealth {
         this.setRenderEffect(RenderEffectType.Hit_Tree_Shudder, true);
     }
 
+    // PLZ PATCH: logging zones. Lua decides, and an error lets the swing through as vanilla would.
+    private boolean plzRefusesFell(IsoGameCharacter owner) {
+        if (!GameServer.server || !(owner instanceof IsoPlayer) || this.square == null || !PLZFixes.on(PLZFixes.TREE_FELL_GATE)) {
+            return false;
+        }
+
+        try {
+            Object gate = LuaManager.env == null ? null : LuaManager.env.rawget("ForestryServer");
+            Object function = gate instanceof KahluaTable table ? table.rawget("mayHit") : null;
+            if (function == null) {
+                return false;
+            }
+
+            LuaReturn result = LuaManager.caller.protectedCall(
+                LuaManager.thread, function, owner, (double)this.square.getX(), (double)this.square.getY(), (double)this.square.getZ()
+            );
+            if (!result.isSuccess() || !Boolean.FALSE.equals(result.getFirst())) {
+                return false;
+            }
+
+            PLZFixes.hit(PLZFixes.TREE_FELL_GATE);
+            return true;
+        } catch (Throwable failure) {
+            DebugLog.log("IsoTree: logging gate let a swing through after " + failure);
+            return false;
+        }
+    }
+
+    // PLZ PATCH: a planted tree becomes erosion's own, so it keeps its species' seasons and growth.
+    public boolean plzAdoptIntoErosion(int species, int stage, int maxStage) {
+        if (GameClient.client || this.square == null || this.square.getZ() != 0 || this.square.getChunk() == null) {
+            return false;
+        }
+
+        ErosionData.Square erosion = this.square.getErosionData();
+        if (erosion == null || !erosion.init || species < 0 || species > 10) {
+            return false;
+        }
+
+        int top = Math.max(0, Math.min(7, maxStage));
+        int at = Math.max(0, Math.min(top, stage));
+        try {
+            erosion.doNothing = false;
+            erosion.regions.removeIf(data -> data.regionId == 0 && data.categoryId == 0);
+            int eTick = ErosionMain.getInstance().getEtick();
+            int spawnTime = eTick - (int)Math.ceil(at * (60.0F / (top + 1.0F)));
+            int flags = 2;
+            if (at == 1) {
+                flags |= 8;
+            } else if (at == 2) {
+                flags |= 16;
+            } else if (at == 3) {
+                flags |= 32;
+            } else if (at == 4) {
+                flags |= 64;
+            } else if (at > 4) {
+                flags |= 128;
+            }
+
+            ByteBuffer bb = ByteBuffer.allocate(16);
+            bb.put((byte)0).put((byte)0).put((byte)-1).put((byte)flags);
+            if (at > 4) {
+                bb.put((byte)at);
+            }
+
+            bb.put((byte)species).put((byte)top).putShort((short)spawnTime);
+            bb.flip();
+            ErosionCategory.Data data = ErosionCategory.loadCategoryData(bb, IsoWorld.getWorldVersion());
+            erosion.regions.add(data);
+            ErosionRegions.getCategory(0, 0).update(this.square, erosion, data, this.square.getChunk().getErosionData(), eTick);
+            return erosion.regions.contains(data);
+        } catch (Throwable failure) {
+            DebugLog.log("IsoTree: could not hand a planted tree to erosion: " + failure);
+            return false;
+        }
+    }
+
     @Override
     public void WeaponHit(IsoGameCharacter owner, HandWeapon weapon) {
+        if (this.plzRefusesFell(owner)) {
+            return;
+        }
+
         if (!GameClient.client && weapon != null) {
             int skill = owner.getWeaponLevel(weapon);
             weapon.checkSyncItemFields(weapon.damageCheck(skill, weapon.hasTag(ItemTag.CHOP_TREE) ? 2.0F : 1.0F, true, true, owner));

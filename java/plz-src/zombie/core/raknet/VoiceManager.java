@@ -40,6 +40,7 @@ import zombie.plz.PLZChannelProbe;
 import zombie.plz.PLZFixes;
 import zombie.plz.PLZVoice;
 import zombie.plz.PLZVoiceChanger;
+import zombie.plz.PLZStation;
 import zombie.radio.devices.DeviceData;
 import zombie.vehicles.BaseVehicle;
 import zombie.vehicles.VehiclePart;
@@ -101,6 +102,8 @@ public class VoiceManager {
     private static boolean plzPrivateCall = false;
 
     private static volatile String plzRadioPttBinding = null;
+    private static volatile boolean plzStationReceiversDirty;
+    private static volatile long plzStationRepublishMs;
 
     // The peers played through a radio with no character loaded on the last pass, and how many voice frames
     // have arrived from each peer since this client joined. Both exist so the MP suite can tell
@@ -759,6 +762,106 @@ public class VoiceManager {
                 return 1;
             }
         });
+        table.rawset("stationSetFrequencies", new JavaFunction() {
+            @Override
+            public int call(LuaCallFrame callFrame, int nArguments) {
+                Object csv = callFrame.get(0);
+                PLZStation.setFrequencies(csv instanceof String s ? s : "");
+                return 0;
+            }
+        });
+        table.rawset("stationSetOnAir", new JavaFunction() {
+            @Override
+            public int call(LuaCallFrame callFrame, int nArguments) {
+                Object freq = callFrame.get(0);
+                Object csv = nArguments > 1 ? callFrame.get(1) : null;
+                if (freq instanceof Double d) {
+                    PLZStation.setOnAir(d.intValue(), csv instanceof String s ? s : "");
+                }
+                return 0;
+            }
+        });
+        table.rawset("stationSetTransmit", new JavaFunction() {
+            @Override
+            public int call(LuaCallFrame callFrame, int nArguments) {
+                Object freq = callFrame.get(0);
+                int next = freq instanceof Double d ? d.intValue() : 0;
+                if (next != PLZStation.transmitFreq()) {
+                    PLZStation.setTransmit(next);
+                    VoiceManager.plzRepublishChannels();
+                }
+                return 0;
+            }
+        });
+        table.rawset("stationScan", new JavaFunction() {
+            @Override
+            public int call(LuaCallFrame callFrame, int nArguments) {
+                Object range = callFrame.get(0);
+                KahluaTable out = callFrame.getPlatform().newTable();
+                java.util.List<Object[]> rows = PLZStation.scan(
+                    IsoPlayer.getInstance(), range instanceof Double d ? d.floatValue() : 30.0F
+                );
+                for (int i = 0; i < rows.size(); i++) {
+                    Object[] r = rows.get(i);
+                    DeviceData dd = (DeviceData)r[0];
+                    KahluaTable row = callFrame.getPlatform().newTable();
+                    row.rawset("device", dd);
+                    row.rawset("freq", (double)dd.getChannel());
+                    row.rawset("volume", (double)dd.getDeviceVolume());
+                    row.rawset("kind", (double)(Integer)r[1]);
+                    row.rawset("x", (double)(Float)r[2]);
+                    row.rawset("y", (double)(Float)r[3]);
+                    row.rawset("z", (double)(Float)r[4]);
+                    row.rawset("dist", (double)(Float)r[5]);
+                    row.rawset("flat", r[6]);
+                    out.rawset(i + 1, row);
+                }
+                callFrame.push(out);
+                return 1;
+            }
+        });
+        table.rawset("stationSetReceivers", new JavaFunction() {
+            @Override
+            public int call(LuaCallFrame callFrame, int nArguments) {
+                Object arg = callFrame.get(0);
+                java.util.ArrayList<PLZStation.Receiver> list = new java.util.ArrayList<>();
+                if (arg instanceof KahluaTable t) {
+                    for (int i = 1; i <= t.len(); i++) {
+                        if (t.rawget(i) instanceof KahluaTable row && row.rawget("device") instanceof DeviceData dd) {
+                            PLZStation.Receiver r = new PLZStation.Receiver();
+                            r.device = dd;
+                            r.freq = row.rawget("freq") instanceof Double d ? d.intValue() : dd.getChannel();
+                            r.x = row.rawget("x") instanceof Double d ? d.floatValue() : 0.0F;
+                            r.y = row.rawget("y") instanceof Double d ? d.floatValue() : 0.0F;
+                            r.z = row.rawget("z") instanceof Double d ? d.floatValue() : 0.0F;
+                            r.gain = row.rawget("gain") instanceof Double d ? d.floatValue() : 1.0F;
+                            r.range = row.rawget("range") instanceof Double d ? d.floatValue() : 30.0F;
+                            r.level = row.rawget("level") instanceof Double d ? d.intValue() : PLZStation.LEVEL_FULL;
+                            r.flat = Boolean.TRUE.equals(row.rawget("flat"));
+                            list.add(r);
+                        }
+                    }
+                }
+                if (PLZStation.setReceivers(list)) {
+                    VoiceManager.plzStationReceiversDirty = true;
+                }
+                long now = System.currentTimeMillis();
+                if (VoiceManager.plzStationReceiversDirty && now - VoiceManager.plzStationRepublishMs >= 1000L) {
+                    VoiceManager.plzStationReceiversDirty = false;
+                    VoiceManager.plzStationRepublishMs = now;
+                    VoiceManager.plzRepublishChannels();
+                }
+                return 0;
+            }
+        });
+        table.rawset("stationVoiceAgeMs", new JavaFunction() {
+            @Override
+            public int call(LuaCallFrame callFrame, int nArguments) {
+                Object freq = callFrame.get(0);
+                callFrame.push(freq instanceof Double d ? PLZStation.voiceAgeMs(d.intValue()) : -1.0);
+                return 1;
+            }
+        });
         environment.rawset("VoiceManager", table);
     }
 
@@ -1240,7 +1343,14 @@ public class VoiceManager {
                                     if (rdata != null && rdata.deviceData != null && !plzSameVehicle) {
                                         javafmodJNI.FMOD_Channel_Set3DLevel(d.userplaychannel, 0.0F);
                                         javafmod.FMOD_Channel_Set3DAttributes(d.userplaychannel, me.getX(), me.getY(), me.getZ(), 0.0F, 0.0F, 0.0F);
-                                        plzVolume = this.plzSetUserPlaySound(d.userplaychannel, rdata.deviceData.getDeviceVolume());
+                                        float plzRadioVolume = rdata.deviceData.getDeviceVolume();
+                                        PLZStation.Receiver plzReceiver = PLZStation.isStation(rdata.freq) ? PLZStation.receiverFor(rdata.deviceData) : null;
+                                        if (plzReceiver != null) {
+                                            plzRadioVolume *= plzReceiver.gain * PLZStation.voiceFalloff(plzReceiver, me.getX(), me.getY());
+                                            PLZStation.noteVoice(rdata.freq);
+                                        }
+
+                                        plzVolume = this.plzSetUserPlaySound(d.userplaychannel, plzRadioVolume);
                                         rdata.deviceData.doReceiveMPSignal(rdata.lastReceiveDistance);
                                     } else if (player != null) {
                                         if (rdata == null && !plzSameVehicle) {
@@ -1429,6 +1539,35 @@ public class VoiceManager {
         }
     }
 
+    // Station receivers past the vanilla 4-tile scan listen at range 0; the on-air host adds the transmitter.
+    private static void plzAppendStationEntries(IsoPlayer me, VoiceManagerData mine) {
+        for (PLZStation.Receiver r : PLZStation.receivers()) {
+            DeviceData dd = r.device;
+            if (dd == null || !dd.getIsTurnedOn() || dd.getChannel() != r.freq) {
+                continue;
+            }
+
+            boolean present = false;
+            for (int k = 1; k < mine.radioData.size(); k++) {
+                if (mine.radioData.get(k).deviceData == dd) {
+                    present = true;
+                    break;
+                }
+            }
+
+            if (!present) {
+                VoiceManagerData.RadioData entry = new VoiceManagerData.RadioData(dd, r.x, r.y);
+                entry.distance = 0.0F;
+                mine.radioData.add(entry);
+            }
+        }
+
+        int freq = PLZStation.transmitFreq();
+        if (freq != 0) {
+            mine.radioData.add(new VoiceManagerData.RadioData(freq, PLZStation.TRANSMIT_RANGE, me.getX(), me.getY()));
+        }
+    }
+
     private VoiceManagerData.RadioData checkForNearbyRadios(VoiceManagerData radioData) {
         IsoPlayer me = IsoPlayer.getInstance();
         if (me != null && me.onlineId != -1) {
@@ -1445,6 +1584,12 @@ public class VoiceManager {
             synchronized (myRadioData.radioData) {
                 for (int i = 1; i < myRadioData.radioData.size(); i++) {
                     if (PLZVoice.isVoiceChannel(myRadioData.radioData.get(i).freq)) {
+                        continue;
+                    }
+
+                    int plzFreq = myRadioData.radioData.get(i).freq;
+                    if (PLZStation.isStation(plzFreq)
+                        && (PLZStation.receiverFor(myRadioData.radioData.get(i).deviceData) == null || !PLZStation.isOnAir(plzFreq, radioData.index))) {
                         continue;
                     }
 
@@ -1586,6 +1731,8 @@ public class VoiceManager {
                         }
                     }
                 }
+
+                plzAppendStationEntries(me, myRadioData);
             }
 
             ByteBufferWriter b = connection.startPacket();

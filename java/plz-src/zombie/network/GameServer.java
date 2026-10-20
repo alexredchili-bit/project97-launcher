@@ -3200,6 +3200,7 @@ public class GameServer {
             // not credited with the apparent speed of the gap between sessions.
             zombie.plz.PLZVoiceRouting.forget(connection.getConnectedGUID());
             zombie.plz.PLZVariableSync.forget(connection.getConnectedGUID());
+            zombie.plz.PLZStationClamp.forget(connection.getConnectedGUID());
             ConnectionManager.log("disconnect", description, connection);
             EventManager.instance().report("[" + connection.getUserName() + "] disconnected from server");
             WorldMapVisitedServer.getInstance().unloadUser(connection.getUserName());
@@ -3383,6 +3384,9 @@ public class GameServer {
             for (int i = 0; i < radioDataSize; i++) {
                 radioData[i] = bb.getInt();
             }
+
+            // PLZ radio stations: only the server-authorised on-air host may transmit on a station frequency.
+            zombie.plz.PLZStationClamp.clamp(connection, isCanHearAll, radioData, radioDataSize);
 
             // PLZ: this table is republished only every 3010 ms and the native voice server routes
             // from it, so a speaker who has moved since their last publish is simply not

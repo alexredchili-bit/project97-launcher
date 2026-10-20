@@ -66,6 +66,7 @@ public class IsoLightSwitch extends IsoObject {
 
     private int plzPowerFrame = -1;
     private boolean plzPowered;
+    private static boolean plzApplyingRemote;
 
     @Override
     public String getObjectName() {
@@ -530,7 +531,9 @@ public class IsoLightSwitch extends IsoObject {
             if (!setActiveBoolOnly) {
                 this.switchLight(this.activated);
                 LightingJNI.doInvalidateGlobalLights(IsoPlayer.getPlayerIndex());
-                this.syncIsoObject(false, (byte)(this.activated ? 1 : 0), null);
+                if (!plzApplyingRemote) {
+                    this.syncIsoObject(false, (byte)(this.activated ? 1 : 0), null);
+                }
             }
         }
 
@@ -709,12 +712,15 @@ public class IsoLightSwitch extends IsoObject {
                 this.syncIsoObjectSend(b);
                 PacketTypes.PacketType.SyncIsoObject.send(GameClient.connection);
             } else if (bRemote) {
-                if (val == 1) {
-                    this.switchLight(true);
-                    this.activated = true;
-                } else {
-                    this.switchLight(false);
-                    this.activated = false;
+                // The sender syncs every tile itself; re-sending siblings here echoes through every client in range.
+                boolean on = val == 1;
+                boolean wasApplyingRemote = plzApplyingRemote;
+                this.activated = on;
+                plzApplyingRemote = true;
+                try {
+                    this.switchLight(on);
+                } finally {
+                    plzApplyingRemote = wasApplyingRemote;
                 }
             }
 

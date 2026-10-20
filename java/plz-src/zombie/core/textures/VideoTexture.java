@@ -15,6 +15,7 @@ import zombie.ZomboidFileSystem;
 import zombie.core.Core;
 import zombie.core.PerformanceSettings;
 import zombie.core.SpriteRenderer;
+import zombie.core.fonts.AngelCodeFont;
 import zombie.core.math.PZMath;
 import zombie.core.opengl.GLStateRenderThread;
 import zombie.core.opengl.RenderThread;
@@ -31,6 +32,8 @@ import zombie.iso.fboRenderChunk.FBORenderCutaways;
 import zombie.plz.PLZLiveAudio;
 import zombie.plz.PLZLiveLink;
 import zombie.plz.PLZLiveVideo;
+import zombie.ui.TextManager;
+import zombie.ui.UIFont;
 
 @UsedFromLua
 public class VideoTexture extends Texture {
@@ -347,6 +350,79 @@ public class VideoTexture extends Texture {
         return new File(ZomboidFileSystem.instance.getMediaPath("videos/" + file)).isFile();
     }
 
+    private static final float[][] CAPTION_OUTLINE = {{-1.0F, 0.0F}, {1.0F, 0.0F}, {0.0F, -1.0F}, {0.0F, 1.0F}};
+
+    public static void cinemaDrawCaption(UIFont uiFont, String text, double cx, double cy, double angle, double alpha) {
+        AngelCodeFont font = TextManager.instance.getFontFromEnum(uiFont);
+        if (font == null || text == null || text.isEmpty()) {
+            return;
+        }
+
+        String[] lines = text.split("\n");
+        float lineH = font.getLineHeight();
+        float ux = (float)Math.cos(angle);
+        float uy = (float)Math.sin(angle);
+        float vx = -uy;
+        float vy = ux;
+        float ox = (float)cx;
+        float oy = (float)cy;
+        float a = (float)alpha;
+        for (float[] shift : CAPTION_OUTLINE) {
+            drawCaptionGlyphs(font, lines, lineH, ox + shift[0], oy + shift[1], ux, uy, vx, vy, 0.0F, a);
+        }
+
+        drawCaptionGlyphs(font, lines, lineH, ox, oy, ux, uy, vx, vy, 1.0F, a);
+    }
+
+    private static void drawCaptionGlyphs(
+        AngelCodeFont font, String[] lines, float lineH, float ox, float oy, float ux, float uy, float vx, float vy, float shade, float a
+    ) {
+        for (int n = 0; n < lines.length; n++) {
+            String line = lines[n];
+            float pen = -font.getWidth(line) / 2.0F;
+            float lineTop = n * lineH;
+            AngelCodeFont.CharDef last = null;
+            for (int i = 0; i < line.length(); i++) {
+                int id = line.charAt(i);
+                if (id >= font.chars.length) {
+                    id = 63;
+                }
+
+                AngelCodeFont.CharDef def = font.chars[id];
+                if (def == null) {
+                    continue;
+                }
+
+                if (last != null) {
+                    pen += last.getKerning(id);
+                }
+
+                last = def;
+                Texture tex = def.image;
+                if (tex != null && def.width > 0 && def.height > 0) {
+                    float x0 = pen + def.xoffset;
+                    float y0 = lineTop + def.yoffset;
+                    float x1 = x0 + def.width;
+                    float y1 = y0 + def.height;
+                    SpriteRenderer.instance.renderPoly(
+                        tex,
+                        ox + ux * x0 + vx * y0, oy + uy * x0 + vy * y0,
+                        ox + ux * x1 + vx * y0, oy + uy * x1 + vy * y0,
+                        ox + ux * x1 + vx * y1, oy + uy * x1 + vy * y1,
+                        ox + ux * x0 + vx * y1, oy + uy * x0 + vy * y1,
+                        shade, shade, shade, a,
+                        tex.getXStart(), tex.getYStart(),
+                        tex.getXEnd(), tex.getYStart(),
+                        tex.getXEnd(), tex.getYEnd(),
+                        tex.getXStart(), tex.getYEnd()
+                    );
+                }
+
+                pen += def.xadvance;
+            }
+        }
+    }
+
     private static final class AudioSlot {
         long sound;
         long channel;
@@ -365,6 +441,45 @@ public class VideoTexture extends Texture {
 
         audioSlots.put(slot, s);
         return 0;
+    }
+
+    private static int cinemaAudioLoadPath(String slot, String path, double mode) {
+        cinemaAudioRelease(slot);
+        if (path == null || !new File(path).isFile()) {
+            return -3;
+        }
+
+        AudioSlot s = new AudioSlot();
+        s.sound = javafmod.FMOD_System_CreateSound(path, (long)mode);
+        if (s.sound == 0L) {
+            return -1;
+        }
+
+        audioSlots.put(slot, s);
+        return 0;
+    }
+
+    public static int cinemaAudioLoadSound(String slot, String soundName, double mode) {
+        return cinemaAudioLoadPath(slot, zombie.plz.PLZStation.clipPath(soundName), mode);
+    }
+
+    public static int cinemaAudioLoadUpload(String slot, String sha, double mode) {
+        return cinemaAudioLoadPath(slot, zombie.plz.PLZStation.uploadPath(sha), mode);
+    }
+
+    public static boolean cinemaUploadExists(String sha) {
+        String path = zombie.plz.PLZStation.uploadPath(sha);
+        return path != null && new File(path).isFile();
+    }
+
+    public static double cinemaAudioLengthMs(String slot) {
+        AudioSlot s = audioSlots.get(slot);
+        return s == null ? -1.0 : (double)javafmod.FMOD_Sound_GetLength(s.sound, 1L);
+    }
+
+    public static boolean cinemaAudioIsPlaying(String slot) {
+        AudioSlot s = audioSlots.get(slot);
+        return s != null && s.channel != 0L && javafmod.FMOD_Channel_IsPlaying(s.channel);
     }
 
     public static int cinemaAudioPreroll(String slot, double targetMs, double volume) {

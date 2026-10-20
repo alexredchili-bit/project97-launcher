@@ -18051,4 +18051,21 @@ public abstract class IsoGameCharacter
     public static String plzLiveToken(String stream, double ttlSeconds) {
         return zombie.plz.PLZLiveToken.token(stream, (long)ttlSeconds);
     }
+
+    public static void plzStationSetFrequencies(String csv) {
+        zombie.plz.PLZStationClamp.setFrequencies(csv);
+    }
+
+    public static void plzStationSetHosts(double freq, String csvUsernames) {
+        zombie.plz.PLZStationClamp.setHosts((int)freq, csvUsernames);
+    }
+
+    public static double plzStationTrackMs(String soundName) {
+        return (double)zombie.plz.PLZStation.trackMs(soundName);
+    }
+
+    public static String plzStationStatus() {
+        return "freqs=" + zombie.plz.PLZStation.frequencyList() + " hosts=" + zombie.plz.PLZStationClamp.hostList()
+            + " clamped=" + zombie.plz.PLZStationClamp.clamped;
+    }
 }

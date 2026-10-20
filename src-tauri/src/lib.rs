@@ -298,7 +298,9 @@ pub async fn status() -> Result<Status> {
 async fn server_status() -> Result<query::ServerStatus> {
     let m = payload::fetch_manifest().await?;
     let sv = effective_server(&m, &State::load());
-    query::query(&sv.host, sv.query_port, 3000).await
+    let mut s = query::query(&sv.host, sv.query_port, 3000).await?;
+    s.name = without_plzpatch(&s.name);
+    Ok(s)
 }
 
 /// Long enough to cover Steam handing the game over more than once. The shadow class writes the
@@ -381,6 +383,21 @@ fn parse_plzpatch(text: &str) -> Option<u64> {
     None
 }
 
+fn without_plzpatch(name: &str) -> String {
+    const TAG: &str = "PLZPATCH";
+    let Some(at) = name.find(TAG) else {
+        return name.to_string();
+    };
+    let tail = name[at + TAG.len()..]
+        .trim_start_matches(|c: char| matches!(c, '=' | ':' | '-' | '_' | ' ' | '#'))
+        .trim_start_matches(|c: char| c.is_ascii_digit());
+    let stripped = format!("{}{}", name[..at].trim_end(), tail);
+    match stripped.trim() {
+        "" => name.to_string(),
+        s => s.to_string(),
+    }
+}
+
 pub fn server_workshop_synced_at(s: &query::ServerStatus) -> Option<u64> {
     s.rules
         .get("plzws")
@@ -397,7 +414,15 @@ pub fn server_build_from_rules(s: &query::ServerStatus) -> Option<u64> {
 
 #[cfg(test)]
 mod plzpatch_tests {
-    use super::parse_plzpatch;
+    use super::{parse_plzpatch, without_plzpatch};
+
+    #[test]
+    fn the_name_shown_to_players_drops_the_tag() {
+        assert_eq!(without_plzpatch("Project '97 PLZPATCH76"), "Project '97");
+        assert_eq!(without_plzpatch("Project '97 PLZPATCH=76 RP"), "Project '97 RP");
+        assert_eq!(without_plzpatch("Project '97"), "Project '97");
+        assert_eq!(parse_plzpatch("Project '97 PLZPATCH76"), Some(76));
+    }
 
     #[test]
     fn accepts_every_separator_a_panel_might_leave_behind() {
@@ -532,6 +557,12 @@ pub async fn run_play(progress: &(dyn Fn(&str, &str) + Send + Sync)) -> Result<P
     let sv = effective_server(&m, &st);
     let status = query::query(&sv.host, sv.query_port, 3000).await;
     let server_synced_at = status.as_ref().ok().and_then(server_workshop_synced_at);
+    if let Ok(s) = &status {
+        session_log::log(
+            "server",
+            &format!("A2S name {:?}, {} rule(s)", s.name, s.rules.len()),
+        );
+    }
     match status {
         Ok(s) => match server_build_from_rules(&s) {
             Some(server_build) if server_build != m.required_server_build => {
@@ -541,6 +572,12 @@ pub async fn run_play(progress: &(dyn Fn(&str, &str) + Send + Sync)) -> Result<P
                 });
             }
             Some(_) => {}
+            None if s.rules.is_empty() => {
+                return Err(Error::Other(format!(
+                    "The server answered, but its details never reached this PC, so the launcher cannot confirm the server's PLZPATCH build. Something on this network is dropping part of the server's reply on {}:{}. This is usually a VPN, a firewall or antivirus that filters game traffic, or a router gaming/QoS feature. Turn those off for a moment and press Play again.",
+                    sv.host, sv.query_port
+                )));
+            }
             None => {
                 return Err(Error::Other(
                     "The server has not published its PLZPATCH build. Passwordless Steam accounts require the matching server patch, so launch is blocked until the server update is complete."

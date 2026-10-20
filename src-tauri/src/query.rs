@@ -11,6 +11,7 @@ const A2S_RULES: u8 = 0x56;
 const S2C_CHALLENGE: u8 = 0x41;
 const S2A_INFO: u8 = 0x49;
 const S2A_RULES: u8 = 0x45;
+const RULES_ATTEMPTS: usize = 3;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -139,6 +140,29 @@ async fn query_kind(sock: &UdpSocket, kind: u8, per_packet: Duration) -> Result<
     Ok(body)
 }
 
+fn parse_rules(body: &[u8]) -> BTreeMap<String, String> {
+    let mut rules = BTreeMap::new();
+    let mut rr = Reader::new(body);
+    if !matches!(rr.u8(), Ok(S2A_RULES)) {
+        return rules;
+    }
+    let Ok(count) = rr.u16() else {
+        return rules;
+    };
+    for _ in 0..count {
+        if rr.remaining() == 0 {
+            break;
+        }
+        match (rr.cstr(), rr.cstr()) {
+            (Ok(k), Ok(v)) => {
+                rules.insert(k, v);
+            }
+            _ => break,
+        }
+    }
+    rules
+}
+
 pub async fn query(host: &str, port: u16, timeout_ms: u64) -> Result<ServerStatus> {
     let started = std::time::Instant::now();
     let sock = UdpSocket::bind("0.0.0.0:0")
@@ -166,22 +190,12 @@ pub async fn query(host: &str, port: u16, timeout_ms: u64) -> Result<ServerStatu
     let max_players = r.u8()?;
 
     let mut rules = BTreeMap::new();
-    if let Ok(body) = query_kind(&sock, A2S_RULES, per_packet).await {
-        let mut rr = Reader::new(&body);
-        if matches!(rr.u8(), Ok(S2A_RULES)) {
-            if let Ok(count) = rr.u16() {
-                for _ in 0..count {
-                    if rr.remaining() == 0 {
-                        break;
-                    }
-                    match (rr.cstr(), rr.cstr()) {
-                        (Ok(k), Ok(v)) => {
-                            rules.insert(k, v);
-                        }
-                        _ => break,
-                    }
-                }
-            }
+    for _ in 0..RULES_ATTEMPTS {
+        if let Ok(body) = query_kind(&sock, A2S_RULES, per_packet).await {
+            rules = parse_rules(&body);
+        }
+        if !rules.is_empty() {
+            break;
         }
     }
 
@@ -197,4 +211,20 @@ pub async fn query(host: &str, port: u16, timeout_ms: u64) -> Result<ServerStatu
         ping_ms,
         rules,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_rules;
+
+    #[test]
+    fn reads_rules_and_treats_a_bad_reply_as_none() {
+        let mut body = vec![0x45, 2, 0];
+        body.extend_from_slice(b"description\0PLZPATCH76\0version\042.12\0");
+        let rules = parse_rules(&body);
+        assert_eq!(rules.get("description").map(String::as_str), Some("PLZPATCH76"));
+        assert_eq!(rules.len(), 2);
+        assert!(parse_rules(&[0x41, 1, 2, 3, 4]).is_empty());
+        assert!(parse_rules(&[]).is_empty());
+    }
 }

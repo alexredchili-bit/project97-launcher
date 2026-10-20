@@ -742,6 +742,14 @@ public class IsoWorldInventoryObject extends IsoObject implements IItemProvider 
         return this.getZ() + this.zoff;
     }
 
+    public static void plzSetModelLightGain(float gain) {
+        zombie.plz.PLZWorldItemLight.setGain(gain);
+    }
+
+    public static float plzGetModelLightGain() {
+        return zombie.plz.PLZWorldItemLight.getGain();
+    }
+
     public static float getSurfaceAlpha(IsoGridSquare square, float zoff) {
         return getSurfaceAlpha(square, zoff, false);
     }

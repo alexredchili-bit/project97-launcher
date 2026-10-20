@@ -83,6 +83,7 @@ public final class PLZFixes {
     public static final String TRANSACTION_CANCEL = "transactionCancel";
     public static final String TRANSACTION_STALE_SWEEP = "transactionStaleSweep";
     public static final String TRANSLATOR_ARGS = "translatorArgs";
+    public static final String TREE_FELL_GATE = "treeFellGate";
     public static final String VEHICLE_CHUNK_REHOME = "vehicleChunkRehome";
     public static final String VOICE_ROUTING_SLACK = "voiceRoutingSlack";
     public static final String VOICE_CROWD_SLACK = "voiceCrowdSlack";
