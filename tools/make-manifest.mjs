@@ -130,6 +130,21 @@ const server = {
     queryPort: serverCfg.queryPort,
     name: serverCfg.name,
 };
+let staging;
+if (serverCfg.staging !== undefined) {
+    for (const key of ["host", "connectPort", "queryPort", "name"]) {
+        if (serverCfg.staging[key] === undefined) {
+            console.error(`tools/server.json staging is missing "${key}"`);
+            process.exit(1);
+        }
+    }
+    staging = {
+        host: serverCfg.staging.host,
+        connectPort: serverCfg.staging.connectPort,
+        queryPort: serverCfg.staging.queryPort,
+        name: serverCfg.staging.name,
+    };
+}
 
 const contentCfg = readJson(resolve(here, "content.json"));
 
@@ -234,6 +249,7 @@ const manifest = {
           }
         : null,
     server,
+    ...(staging ? { staging } : {}),
     requiredServerBuild: build,
     files,
     serverFiles,

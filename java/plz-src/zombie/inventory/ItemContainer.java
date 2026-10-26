@@ -2497,6 +2497,20 @@ public final class ItemContainer {
         return savedItems;
     }
 
+    /** Same layout as save, minus the items; unexplored so opening it asks the server for them. */
+    public void plzSaveLean(ByteBuffer output) throws IOException {
+        if (this.items.isEmpty()) {
+            this.save(output, null);
+            return;
+        }
+
+        GameWindow.WriteString(output, this.type);
+        output.put((byte)0);
+        CompressIdenticalItems.save(output, new ArrayList<>(), null);
+        output.put((byte)(this.isHasBeenLooted() ? 1 : 0));
+        output.putInt(this.capacity);
+    }
+
     public ArrayList<InventoryItem> save(ByteBuffer output) throws IOException {
         return this.save(output, null);
     }

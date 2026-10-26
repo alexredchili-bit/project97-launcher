@@ -57,6 +57,7 @@ pub struct Status {
     pub server_connect_port: Option<u16>,
     pub server_query_port: Option<u16>,
     pub server_overridden: bool,
+    pub staging: Option<payload::ServerInfo>,
     pub last_stamp: Option<patch::Stamp>,
     pub problems: Vec<String>,
     pub launcher_version: String,
@@ -285,6 +286,7 @@ pub async fn status() -> Result<Status> {
         server_connect_port: manifest.as_ref().map(|m| effective_server(m, &st).connect_port),
         server_query_port: manifest.as_ref().map(|m| effective_server(m, &st).query_port),
         server_overridden: st.server_override.is_some(),
+        staging: manifest.as_ref().and_then(|m| m.staging.clone()),
         last_stamp: patch::read_stamp(),
         problems,
         launcher_version: env!("CARGO_PKG_VERSION").to_string(),
@@ -301,6 +303,20 @@ async fn server_status() -> Result<query::ServerStatus> {
     let mut s = query::query(&sv.host, sv.query_port, 3000).await?;
     s.name = without_plzpatch(&s.name);
     Ok(s)
+}
+
+#[tauri::command]
+async fn staging_status() -> Result<query::ServerStatus> {
+    let sv = staging_server(&payload::fetch_manifest().await?)?;
+    let mut s = query::query(&sv.host, sv.query_port, 3000).await?;
+    s.name = without_plzpatch(&s.name);
+    Ok(s)
+}
+
+pub fn staging_server(m: &payload::Manifest) -> Result<payload::ServerInfo> {
+    m.staging.clone().ok_or_else(|| {
+        Error::Other("This release does not list a staging server.".into())
+    })
 }
 
 /// Long enough to cover Steam handing the game over more than once. The shadow class writes the
@@ -476,15 +492,19 @@ pub struct PlayResult {
 }
 
 #[tauri::command]
-async fn play(app: AppHandle) -> Result<PlayResult> {
+async fn play(app: AppHandle, staging: Option<bool>) -> Result<PlayResult> {
     let handle = app.clone();
-    run_play(&move |step, detail| emit(&handle, step, detail)).await
+    run_play(&move |step, detail| emit(&handle, step, detail), staging.unwrap_or(false)).await
 }
 
-pub async fn run_play(progress: &(dyn Fn(&str, &str) + Send + Sync)) -> Result<PlayResult> {
+pub async fn run_play(
+    progress: &(dyn Fn(&str, &str) + Send + Sync),
+    staging: bool,
+) -> Result<PlayResult> {
     session_log::start(&format!(
-        "launcher {} play run",
-        env!("CARGO_PKG_VERSION")
+        "launcher {} play run{}",
+        env!("CARGO_PKG_VERSION"),
+        if staging { " (staging)" } else { "" }
     ));
     let logged = |step: &str, detail: &str| {
         session_log::log(step, detail);
@@ -553,8 +573,12 @@ pub async fn run_play(progress: &(dyn Fn(&str, &str) + Send + Sync)) -> Result<P
         });
     }
 
-    progress("server", "Checking the server");
-    let sv = effective_server(&m, &st);
+    progress("server", if staging { "Checking the staging server" } else { "Checking the server" });
+    let sv = if staging {
+        staging_server(&m)?
+    } else {
+        effective_server(&m, &st)
+    };
     let status = query::query(&sv.host, sv.query_port, 3000).await;
     let server_synced_at = status.as_ref().ok().and_then(server_workshop_synced_at);
     if let Ok(s) = &status {
@@ -565,6 +589,12 @@ pub async fn run_play(progress: &(dyn Fn(&str, &str) + Send + Sync)) -> Result<P
     }
     match status {
         Ok(s) => match server_build_from_rules(&s) {
+            Some(server_build) if staging && server_build != m.required_server_build => {
+                return Err(Error::Other(format!(
+                    "The staging server is running patch build {server_build} and this launcher has build {}. Staging can only be joined while it runs the same build as the live server.",
+                    m.required_server_build
+                )));
+            }
             Some(server_build) if server_build != m.required_server_build => {
                 return Err(Error::BuildMismatch {
                     server: server_build,
@@ -814,6 +844,31 @@ pub async fn run_play(progress: &(dyn Fn(&str, &str) + Send + Sync)) -> Result<P
     })();
 
     let join = bootstrap::read_join_result();
+
+    // Staging has its own accounts, so nothing it says about this player may rewrite the live identity.
+    if staging {
+        bootstrap::clear_join_intent();
+        progress("restore", "Restoring your game install");
+        let restored = patch::repair(&mut st)?;
+        let join_error = join.as_ref().and_then(|r| match r.code.as_str() {
+            "PLZNotApproved" => Some(
+                "Your Steam account is not on the staging whitelist. Staging keeps its own \
+                 whitelist, separate from the live server. Send your Steam ID to an admin."
+                    .into(),
+            ),
+            _ => bootstrap::explain(r),
+        });
+        let stamp = outcome?.ok();
+        return Ok(PlayResult {
+            launched: true,
+            patch_verified: stamp.is_some(),
+            stamp,
+            restored,
+            join_error,
+            bound_username: None,
+            notes,
+        });
+    }
 
     if let Some(role) = bootstrap::read_role() {
         if st.role_grants_debug != Some(role.grants_debug)
@@ -1296,6 +1351,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_status,
             server_status,
+            staging_status,
             play,
             set_account_username,
             rename_account_username,

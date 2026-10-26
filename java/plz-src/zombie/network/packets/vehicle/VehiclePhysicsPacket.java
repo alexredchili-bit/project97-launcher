@@ -203,7 +203,11 @@ public class VehiclePhysicsPacket extends VehicleInterpolationData implements IN
             }
         }
 
-        this.sendToRelativeClients(packetType, connection, this.x, this.y);
+        if (zombie.plz.PLZFixes.on(zombie.plz.PLZFixes.VEHICLE_PHYSICS_FAST_LANE)) {
+            zombie.plz.PLZVehicleNet.relayPhysics(this, packetType, connection, this.vehicleId.getVehicle(), this.x, this.y);
+        } else {
+            this.sendToRelativeClients(packetType, connection, this.x, this.y);
+        }
     }
 
     public BaseVehicle getVehicle() {

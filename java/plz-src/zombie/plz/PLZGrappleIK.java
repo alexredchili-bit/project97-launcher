@@ -64,8 +64,9 @@ public final class PLZGrappleIK {
     public static final int CFG_HELD = 1;
     public static final int CFG_NEAR = 2;
     public static final int CFG_FAR = 3;
+    public static final int CFG_GRIPS = 4;
 
-    private static final float[] DEFAULT_CFG = { 1.0F, 1.0F, DEFAULT_NEAR, DEFAULT_FAR };
+    private static final float[] DEFAULT_CFG = { 1.0F, 1.0F, DEFAULT_NEAR, DEFAULT_FAR, 0.0F };
 
     /** Keyed by the grappler node. near/far below zero keep the default. */
     public static void setNode(String node, boolean holder, boolean held, float near, float far) {
@@ -74,7 +75,17 @@ public final class PLZGrappleIK {
         }
         float n = near < 0.0F ? DEFAULT_NEAR : near;
         float f = far < 0.0F ? DEFAULT_FAR : far;
-        NODES.put(node.toLowerCase(Locale.ROOT), new float[] { holder ? 1.0F : 0.0F, held ? 1.0F : 0.0F, n, Math.max(f, n + 1.0E-4F) });
+        NODES.put(node.toLowerCase(Locale.ROOT), new float[] { holder ? 1.0F : 0.0F, held ? 1.0F : 0.0F, n, Math.max(f, n + 1.0E-4F), 0.0F });
+    }
+
+    /** The held character's hands keep every contact they make, not only a hand reaching for theirs: an embrace. */
+    public static void setGrips(String node, boolean grips) {
+        if (node == null || node.isEmpty()) {
+            return;
+        }
+        float[] cfg = nodeConfig(node).clone();
+        cfg[CFG_GRIPS] = grips ? 1.0F : 0.0F;
+        NODES.put(node.toLowerCase(Locale.ROOT), cfg);
     }
 
     public static void clearNodes() {
@@ -409,6 +420,13 @@ public final class PLZGrappleIK {
         toModel(to, v);
     }
 
+    private static void carry(Pose from, Pose to, float[] v, float dx, float dy) {
+        toWorld(from, v);
+        v[0] += dx;
+        v[1] += dy;
+        toModel(to, v);
+    }
+
     //============================================================//
     // the pass
     //============================================================//
@@ -419,11 +437,24 @@ public final class PLZGrappleIK {
      * reaches back for a hand that is reaching for theirs: a limp or cuffed arm is not a grip.
      */
     public static void apply(Pose me, Pose other, float near, float far, boolean holder, Matrix4f[] model, long nowMs) {
+        apply(me, other, near, far, holder, false, 0.0F, model, nowMs);
+    }
+
+    /** {@code spacing}: tiles further apart than authored; contacts are read as if the pair stood where the clip put them. */
+    public static void apply(Pose me, Pose other, float near, float far, boolean holder, boolean grips, float spacing, Matrix4f[] model, long nowMs) {
         me.clearInfo();
         Rig rig = me.rig;
         Rig otherRig = other.rig;
         if (rig == null || otherRig == null) {
             return;
+        }
+
+        float sx = 0.0F;
+        float sy = 0.0F;
+        float apart = (float)Math.sqrt((other.wx - me.wx) * (other.wx - me.wx) + (other.wy - me.wy) * (other.wy - me.wy));
+        if (spacing != 0.0F && apart > 1.0E-4F) {
+            sx = (other.wx - me.wx) / apart * spacing;
+            sy = (other.wy - me.wy) / apart * spacing;
         }
 
         float[][] goals = new float[2][];
@@ -433,7 +464,7 @@ public final class PLZGrappleIK {
         float[] mapped = me.mappedScratch(otherRig.count);
         for (int i = 0; i < otherRig.count; i++) {
             load(other.vanPos, i, v);
-            carry(other, me, v);
+            carry(other, me, v, -sx, -sy);
             mapped[i * 3] = v[0];
             mapped[i * 3 + 1] = v[1];
             mapped[i * 3 + 2] = v[2];
@@ -497,13 +528,13 @@ public final class PLZGrappleIK {
             int theirSide = otherRig.handSide[bestSeg] >= 0 ? otherRig.handSide[bestSeg] : otherRig.handSide[pj];
             boolean mutual = holdsBack(other, theirSide, rig, side);
             info[INFO_MUTUAL] = mutual ? 1.0F : 0.0F;
-            if (!holder && !mutual) {
+            if (!holder && !mutual && !grips) {
                 continue;
             }
 
             int wrist = rig.arm[side][2];
             load(me.vanPos, wrist, v);
-            carry(me, other, v);
+            carry(me, other, v, sx, sy);
             lerp(other.vanPos, pj, bestSeg, bestT, a);
             float dx = v[0] - a[0];
             float dy = v[1] - a[1];

@@ -453,7 +453,7 @@ public class BaseGrappleable implements IGrappleable {
         } else {
             // PLZ. AnimLayer has already stamped the node value onto grappleOffsetForward this
             // frame. The registry gets the last word, which is what lets the editor move it live.
-            return PLZGrappleEdit.forward(this.sharedGrappleAnimNode, this.grappleOffsetForward, this.getSharedGrappleAnimFraction());
+            return PLZGrappleEdit.spaced(this, PLZGrappleEdit.forward(this.sharedGrappleAnimNode, this.grappleOffsetForward, this.getSharedGrappleAnimFraction()));
         }
     }
 

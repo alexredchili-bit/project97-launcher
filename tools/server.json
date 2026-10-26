@@ -2,5 +2,11 @@
   "host": "192.99.39.85",
   "connectPort": 27090,
   "queryPort": 27090,
-  "name": "Project '97"
+  "name": "Project '97",
+  "staging": {
+    "host": "192.99.39.85",
+    "connectPort": 27100,
+    "queryPort": 27100,
+    "name": "Project '97 Staging"
+  }
 }

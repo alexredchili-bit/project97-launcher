@@ -96,6 +96,13 @@ async fn main() {
                     );
                     line("payload installed", s.payload_installed);
                     line(
+                        "staging",
+                        s.staging
+                            .as_ref()
+                            .map(|g| format!("{} {}:{}", g.name, g.host, g.connect_port))
+                            .unwrap_or("-".into()),
+                    );
+                    line(
                         "jar matches patch",
                         match s.jar_matches {
                             Some(true) => "yes",
@@ -552,7 +559,12 @@ Only the built-in `admin` role carries ConnectWithDebug. moderator and gm do not
                 (Err(e), _) | (_, Err(e)) => Err(e),
             }
         }
-        "play" => match app_lib::run_play(&|step, detail| println!("[{step:<9}] {detail}")).await {
+        "play" => match app_lib::run_play(
+            &|step, detail| println!("[{step:<9}] {detail}"),
+            std::env::args().nth(2).as_deref() == Some("--staging"),
+        )
+        .await
+        {
             Ok(r) => {
                 line("launched", r.launched);
                 line("patch verified", r.patch_verified);

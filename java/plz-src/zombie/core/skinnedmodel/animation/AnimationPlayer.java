@@ -34,6 +34,7 @@ import zombie.iso.Vector3;
 import zombie.plz.PLZAnimalForm;
 import zombie.plz.PLZArmClearance;
 import zombie.plz.PLZBoneScale;
+import zombie.plz.PLZGrappleEdit;
 import zombie.plz.PLZGrappleIK;
 import zombie.util.IPooledObject;
 import zombie.util.Lambda;
@@ -1674,7 +1675,9 @@ public final class AnimationPlayer extends PooledObject {
             return;
         }
 
-        PLZGrappleIK.apply(this.plzIkPose, otherPose, cfg[PLZGrappleIK.CFG_NEAR], cfg[PLZGrappleIK.CFG_FAR], holder, this.modelTransforms, now);
+        float spacing = PLZGrappleEdit.spacing(holder ? chr : partner);
+        PLZGrappleIK.apply(this.plzIkPose, otherPose, cfg[PLZGrappleIK.CFG_NEAR], cfg[PLZGrappleIK.CFG_FAR], holder,
+            cfg[PLZGrappleIK.CFG_GRIPS] > 0.0F, spacing, this.modelTransforms, now);
     }
 
     public void transformRootChildBones(String boneName, Quaternion rotation) {

@@ -41,6 +41,8 @@ public class VehicleRequestPacket implements INetworkPacket {
         TShortShortIterator iterator = this.parsedRequests.iterator();
         boolean plzRemoveUnknown = zombie.plz.PLZFixes.on(zombie.plz.PLZFixes.VEHICLE_PHANTOM_REMOVE);
         int plzRemoved = 0;
+        boolean plzDedupe = zombie.plz.PLZFixes.on(zombie.plz.PLZFixes.VEHICLE_FULL_DEDUPE);
+        boolean plzTrack = plzDedupe || zombie.plz.PLZFixes.on(zombie.plz.PLZFixes.VEHICLE_LEAN_FULL);
 
         while (iterator.hasNext()) {
             iterator.advance();
@@ -58,10 +60,19 @@ public class VehicleRequestPacket implements INetworkPacket {
                 short flag = iterator.value();
                 BaseVehicle.ServerVehicleState state = VehicleManager.instance.getVehicleState(connection, vehicle);
                 if (flag == 16384) {
+                    if (plzTrack) {
+                        zombie.plz.PLZVehicleNet.noteKnown(connection, vehicle.vehicleId);
+                    }
+
                     if (!connection.isRelevantTo(vehicle.getX(), vehicle.getY())) {
                         INetworkPacket.send(connection, PacketTypes.PacketType.VehicleRemove, vehicle);
                     }
                 } else {
+                    if ((flag & 1) != 0 && plzDedupe && !zombie.plz.PLZVehicleNet.grantFull(connection, vehicle.vehicleId)) {
+                        flag = (short)(flag & ~1);
+                        zombie.plz.PLZFixes.hit(zombie.plz.PLZFixes.VEHICLE_FULL_DEDUPE);
+                    }
+
                     state.flags |= flag;
                 }
             }

@@ -8,7 +8,7 @@
       "root": "plz-src",
       "label": "plz-gameplay",
       "env": "PLZ_JAVA_PATCH_SRC",
-      "mirrorFrom": "../../mods/RPMods/java-patch/src"
+      "mirrorFrom": "../../mods/_tools/worktrees/RPMods-release/java-patch/src"
     }
   ],
   "undeclared": [],
@@ -184,7 +184,8 @@
     "zombie/vehicles/BaseVehicle",
     "zombie/vehicles/UI3DScene",
     "zombie/vehicles/VehiclePart",
-    "zombie/worldMap/WorldMapRenderer"
+    "zombie/worldMap/WorldMapRenderer",
+    "zombie/plz/PLZVehicleNet"
   ],
   "server": [
     "se/krka/kahlua/j2se/J2SEPlatform",
@@ -200,6 +201,7 @@
     "zombie/characters/action/ActionGroup",
     "zombie/characters/action/ActionState",
     "zombie/characters/animals/IsoAnimal",
+    "zombie/characters/animals/behavior/BaseAnimalBehavior",
     "zombie/characters/animals/datas/AnimalData",
     "zombie/chat/ChatBase",
     "zombie/core/ActionManager",
@@ -341,6 +343,9 @@
     "zombie/vehicles/BaseVehicle",
     "zombie/vehicles/VehiclePart",
     "zombie/world/moddata/GlobalModData",
-    "zombie/worldMap/WorldMapVisitedServer"
+    "zombie/worldMap/WorldMapVisitedServer",
+    "zombie/plz/PLZVehicleNet",
+    "zombie/vehicles/VehicleManager",
+    "zombie/network/packets/RequestItemsForContainerPacket"
   ]
 }

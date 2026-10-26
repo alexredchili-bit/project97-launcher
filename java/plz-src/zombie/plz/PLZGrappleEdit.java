@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import zombie.characters.IsoGameCharacter;
+import zombie.characters.IsoPlayer;
 import zombie.core.skinnedmodel.IGrappleable;
 import zombie.core.skinnedmodel.advancedanimation.GrappleOffsetBehaviour;
 
@@ -55,6 +57,7 @@ public final class PLZGrappleEdit {
         volatile float yaw;
         volatile float phase;
         volatile float side;
+        volatile float spacing;
         volatile GrappleOffsetBehaviour behaviour;
         volatile Curve forwardCurve;
         volatile Curve yawCurve;
@@ -146,6 +149,14 @@ public final class PLZGrappleEdit {
         Entry e = getOrCreate(node);
         if (e != null) {
             e.phase = phase;
+        }
+    }
+
+    /** How much of the pair's extra chest and belly depth pushes the held character away; 0 is off, 1 all of it. */
+    public static void setSpacing(String node, float gain) {
+        Entry e = getOrCreate(node);
+        if (e != null) {
+            e.spacing = Float.isNaN(gain) ? 0.0F : Math.max(0.0F, Math.min(2.0F, gain));
         }
     }
 
@@ -259,6 +270,11 @@ public final class PLZGrappleEdit {
         return e == null ? Float.NaN : e.phase;
     }
 
+    public static float spacingOf(String node) {
+        Entry e = find(node);
+        return e == null ? Float.NaN : e.spacing;
+    }
+
     /** The XML spelling of the behaviour, or "" when the node keeps the one from its node file. */
     public static String behaviourOf(String node) {
         Entry e = find(node);
@@ -357,6 +373,69 @@ public final class PLZGrappleEdit {
             return 0.0F;
         }
         return side(relativeTo.getSharedGrappleAnimNode(), relativeTo.getSharedGrappleAnimFraction());
+    }
+
+    // ------------------------------------------------------------------ body spacing
+
+    // Model units ahead of the spine bones, measured on MaleBody.x / FemaleBody.x at chest and belly height.
+    public static final float CHEST_FRONT_MALE = 0.12F;
+    public static final float CHEST_FRONT_FEMALE = 0.09F;
+    public static final float BELLY_FRONT = 0.086F;
+    /** Belly clearance two default bodies already have in a hug, used up before the pair moves apart. */
+    public static final float BELLY_ROOM = 0.09F;
+    public static final float CLOSER_MAX = 0.03F;
+    public static final float APART_MAX = 0.25F;
+    private static final float MODEL_TO_TILES = 1.5F;
+
+    /** Model units beyond a default male pair, front to front; girth scales about the spine, which sits at the back. */
+    public static float bodyDepthExtra(float sizeA, float chestA, float bellyA, boolean femaleA,
+            float sizeB, float chestB, float bellyB, boolean femaleB) {
+        float chest = chestFront(femaleA) * sizeA * chestA + chestFront(femaleB) * sizeB * chestB - 2.0F * CHEST_FRONT_MALE;
+        float belly = BELLY_FRONT * (sizeA * bellyA + sizeB * bellyB) - 2.0F * BELLY_FRONT - BELLY_ROOM;
+        return Math.max(-CLOSER_MAX, Math.min(APART_MAX, Math.max(chest, belly)));
+    }
+
+    private static float chestFront(boolean female) {
+        return female ? CHEST_FRONT_FEMALE : CHEST_FRONT_MALE;
+    }
+
+    /** Tiles the held character stands further off than the node says, for the two bodies in this pair. */
+    public static float spacing(IGrappleable holder) {
+        if (holder == null || !holder.isGrappling()) {
+            return 0.0F;
+        }
+        Entry e = find(holder.getSharedGrappleAnimNode());
+        if (e == null || e.spacing == 0.0F) {
+            return 0.0F;
+        }
+        IsoGameCharacter a = characterOf(holder);
+        IsoGameCharacter b = characterOf(holder.getGrapplingTarget());
+        if (a == null || b == null) {
+            return 0.0F;
+        }
+        String ua = usernameOf(a);
+        String ub = usernameOf(b);
+        float extra = bodyDepthExtra(
+            PLZBoneScale.getOverall(ua), PLZBoneScale.getAxis(ua, "torso", 2), PLZBoneScale.getAxis(ua, "belly", 2), a.isFemale(),
+            PLZBoneScale.getOverall(ub), PLZBoneScale.getAxis(ub, "torso", 2), PLZBoneScale.getAxis(ub, "belly", 2), b.isFemale());
+        return extra * MODEL_TO_TILES * e.spacing;
+    }
+
+    /** {@code forward} pushed further from the holder by the pair's spacing, whichever side the held one stands. */
+    public static float spaced(IGrappleable holder, float forward) {
+        float extra = spacing(holder);
+        return extra == 0.0F ? forward : forward + Math.copySign(extra, forward);
+    }
+
+    private static IsoGameCharacter characterOf(IGrappleable g) {
+        if (g instanceof IsoGameCharacter direct) {
+            return direct;
+        }
+        return g != null && g.getAnimatable() instanceof IsoGameCharacter wrapped ? wrapped : null;
+    }
+
+    private static String usernameOf(IsoGameCharacter chr) {
+        return chr instanceof IsoPlayer player ? player.getUsername() : null;
     }
 
     // ------------------------------------------------------------------ attachments

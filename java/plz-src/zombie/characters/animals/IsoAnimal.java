@@ -39,6 +39,7 @@ import zombie.ai.states.animals.AnimalZoneState;
 import zombie.characters.AnimalFootstepManager;
 import zombie.characters.AnimalVocalsManager;
 import zombie.characters.CharacterStat;
+import zombie.characters.NetworkPlayerAI;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
@@ -58,6 +59,7 @@ import zombie.core.math.PZMath;
 import zombie.core.properties.IsoPropertyType;
 import zombie.core.raknet.UdpConnection;
 import zombie.core.random.Rand;
+import zombie.core.skinnedmodel.BaseGrappleable;
 import zombie.core.skinnedmodel.advancedanimation.AnimLayer;
 import zombie.core.skinnedmodel.advancedanimation.AnimationSet;
 import zombie.core.skinnedmodel.advancedanimation.AnimationVariableHandles;
@@ -106,6 +108,7 @@ import zombie.iso.objects.IsoWorldInventoryObject;
 import zombie.iso.objects.RainManager;
 import zombie.network.GameClient;
 import zombie.network.GameServer;
+import zombie.pathfind.PathFindBehavior2;
 import zombie.network.PacketTypes.PacketType;
 import zombie.network.packets.INetworkPacket;
 import zombie.plz.PLZAnimalCalm;
@@ -220,6 +223,47 @@ public class IsoAnimal extends IsoPlayer implements IAnimalVisual {
     public int plzNetAsks;
     // PLZ: world-age hour this animal last ran live, -1 until it has.
     public double plzLiveHour = -1.0;
+    public static final float PLZ_LEAD_ROPE = 6.0F;
+    public static final float PLZ_TETHER_ROPE = 2.0F;
+    public static final float PLZ_LEAD_PACE_FROM = 1.5F;
+    public static final float PLZ_LEAD_PACE_PER_TILE = 0.4F;
+    public static final float PLZ_LEAD_PACE_MAX = 1.8F;
+    public static final float PLZ_HORSE_LEAD_MAX_SPEED = 9.0F;
+    public static final float PLZ_HORSE_LEAD_SIDE = 0.85F;
+    public static final float PLZ_HORSE_LEAD_FORWARD = -0.5F;
+    public static final String PLZ_HORSE_LEAD_SLOT = "plzHorseLead";
+    public static final float PLZ_HORSE_LEAD_WELD_RANGE = 4.0F;
+    private boolean plzLeadWelded;
+    public static final float PLZ_HORSE_LEAD_LOOKAHEAD = 0.5F;
+    public static final float PLZ_HORSE_REMOTE_CATCHUP = 4.0F;
+    public static final float PLZ_HORSE_WALK_CLIP_PER_TILE = 0.94F;
+    public static final float PLZ_HORSE_TROT_CLIP_PER_TILE = 0.275F;
+    private long plzRemoteGlideNanos;
+    private boolean plzDriveActive;
+    private float plzDriveVX;
+    private float plzDriveVY;
+    public static final float PLZ_HORSE_LEAD_GAIN = 3.0F;
+    public static final float PLZ_HORSE_LEAD_SETTLE = 0.6F;
+    public static final float PLZ_HORSE_LEAD_WALK_ON = 0.35F;
+    public static final float PLZ_HORSE_LEAD_WALK_OFF = 0.15F;
+    private boolean plzLeadWalkVar;
+    public static final float PLZ_HORSE_LEAD_SET_OFF = 0.8F;
+    public static final float PLZ_HORSE_LEAD_MOVING = 0.3F;
+    private float plzRepathTimer;
+    private boolean plzLedVar;
+    private boolean plzLeadRunVar;
+    private float plzLeaderLastX;
+    private float plzLeaderLastY;
+    private float plzLeaderVX;
+    private float plzLeaderVY;
+    private int plzHorseSide;
+    private float plzHorseTargetX;
+    private float plzHorseTargetY;
+    private float plzHorseErr;
+    private boolean plzHorseLeaderMoving;
+    private long plzLeadDriveNanos;
+    // PLZ: world-age hour it came back from disk or an unloaded area, -1 once its catch-up has run.
+    public double plzBackHour = -1.0;
 
     public IsoAnimal(IsoCell cell) {
         this(cell, 0, 0, 0, null, "");
@@ -391,7 +435,7 @@ public class IsoAnimal extends IsoPlayer implements IAnimalVisual {
             plzEnsureMapEntry();
         }
 
-        if (!GameClient.client) {
+        if (!GameClient.client && this.plzBackHour < 0.0) {
             this.plzLiveHour = GameTime.getInstance().getWorldAgeHours();
         }
 
@@ -442,6 +486,7 @@ public class IsoAnimal extends IsoPlayer implements IAnimalVisual {
     private void updateInternal() {
         if (!this.fromMeta) {
             if (this.behavior != null && this.data != null) {
+                this.plzUpdateLeadPace();
                 if (GameClient.client) {
                     this.width = this.adef.collisionSize * this.getAnimalSize();
                     this.separate();
@@ -452,6 +497,8 @@ public class IsoAnimal extends IsoPlayer implements IAnimalVisual {
                     } else {
                         super.update();
                     }
+
+                    this.plzAttachLedHorse();
                 } else {
                     this.behavior.update();
                     this.data.update();
@@ -481,6 +528,7 @@ public class IsoAnimal extends IsoPlayer implements IAnimalVisual {
                         }
 
                         super.update();
+                        this.plzDriveLedHorse();
                     }
                 }
             }
@@ -1573,6 +1621,7 @@ public class IsoAnimal extends IsoPlayer implements IAnimalVisual {
     @Override
     public void load(ByteBuffer input, int worldVersion, boolean isDebugSave) throws IOException {
         this.setIsAnimal(true);
+        this.plzBackHour = GameTime.getInstance().getWorldAgeHours();
         UUID zoneID = new UUID(input.getLong(), input.getLong());
         this.animalZone = zoneID.getMostSignificantBits() == 0L && zoneID.getLeastSignificantBits() == 0L
             ? null
@@ -1769,14 +1818,14 @@ public class IsoAnimal extends IsoPlayer implements IAnimalVisual {
         }
 
         int ropeLength = 15;
-        if (this.getData().getAttachedPlayer() != null && sq.DistTo(this.getData().getAttachedPlayer().getCurrentSquare()) > 15.0F) {
+        if (this.getData().getAttachedPlayer() != null && sq.DistTo(this.getData().getAttachedPlayer().getCurrentSquare()) > PLZ_LEAD_ROPE) {
             return false;
         }
 
         if (this.getData().getAttachedTree() != null) {
             int treeX = this.getData().getAttachedTreeX();
             int treeY = this.getData().getAttachedTreeY();
-            if (IsoUtils.DistanceTo(treeX + 0.5F, treeY + 0.5F, sq.getX() + 0.5F, sq.getY() + 0.5F) > 15.0F) {
+            if (IsoUtils.DistanceTo(treeX + 0.5F, treeY + 0.5F, sq.getX() + 0.5F, sq.getY() + 0.5F) > PLZ_TETHER_ROPE) {
                 return false;
             }
         }
@@ -1908,23 +1957,37 @@ public class IsoAnimal extends IsoPlayer implements IAnimalVisual {
             return hours;
         }
 
+        // A zero-hour call is fromWorker before the zone is connected; stamping on it ate the real catch-up that follows.
+        if (hours <= 0) {
+            return hours;
+        }
+
         double now = GameTime.getInstance().getWorldAgeHours();
-        double seen = this.plzLiveHour;
+        int own = hours;
+        if (this.plzBackHour >= 0.0) {
+            own = Math.min(own, hours - (int)Math.max(0.0, now - this.plzBackHour));
+            if (this.plzLiveHour >= 0.0) {
+                own = Math.min(own, (int)Math.max(0.0, this.plzBackHour - this.plzLiveHour));
+            }
+        } else if (this.plzLiveHour >= 0.0) {
+            own = Math.min(own, (int)Math.max(0.0, now - this.plzLiveHour));
+        }
+
+        own = Math.max(0, own);
+        this.plzBackHour = -1.0;
         this.plzLiveHour = now;
-        if (seen < 0.0) {
-            return hours;
+        if (own < hours) {
+            zombie.plz.PLZFixes.hit(zombie.plz.PLZFixes.ANIMAL_AWAY_CLAMP);
         }
 
-        int own = (int)Math.max(0.0, now - seen);
-        if (own >= hours) {
-            return hours;
-        }
-
-        zombie.plz.PLZFixes.hit(zombie.plz.PLZFixes.ANIMAL_AWAY_CLAMP);
         return own;
     }
 
     public void updateStatsAway(int hours) {
+        if (this.fromMeta && !GameClient.client) {
+            this.plzBackHour = GameTime.getInstance().getWorldAgeHours();
+        }
+
         hours = this.plzAwayHours(hours);
         this.fromMeta = false;
         if (!this.isWild()) {
@@ -1932,9 +1995,17 @@ public class IsoAnimal extends IsoPlayer implements IAnimalVisual {
             this.checkZone();
             int age = this.getData().getAge();
             int deltaAge = hours / 24;
+            double plzRest = 0.0;
+            if (zombie.plz.PLZFixes.on(zombie.plz.PLZFixes.ANIMAL_CATCH_UP)) {
+                // Vanilla drops the part-day, so a farm visited more often than every 24 game hours never ages.
+                double carried = Math.min(23.0, Math.max(0.0, this.getHoursSurvived() - age * 24.0)) + hours;
+                deltaAge = (int)(carried / 24.0);
+                plzRest = carried - deltaAge * 24.0;
+            }
+
             deltaAge *= (int)this.getData().getAgeGrowModifier();
             int newage = age + deltaAge;
-            this.setHoursSurvived(newage * 24);
+            this.setHoursSurvived(newage * 24 + plzRest);
             this.getData().lastHourCheck = GameTime.getInstance().getHour();
             this.getData().setAge(newage);
             PZCalendar cal = PZCalendar.getInstance();
@@ -2763,6 +2834,247 @@ public class IsoAnimal extends IsoPlayer implements IAnimalVisual {
         chr.petAnimal();
     }
 
+    // PLZ: drives the plzLeadPathfind nodes, whose walk speeds up as the animal falls behind the player.
+    private void plzUpdateLeadPace() {
+        IsoPlayer leader = this.data.getAttachedPlayer();
+        boolean led = leader != null;
+        if (led != this.plzLedVar) {
+            this.plzLedVar = led;
+            this.setVariable("plzLed", led);
+        }
+
+        boolean run = led && plzLeaderRuns(leader);
+        if (run != this.plzLeadRunVar) {
+            this.plzLeadRunVar = run;
+            this.setVariable("plzLeadRun", run);
+        }
+
+        if (led && this.getVariableBoolean("isHorse")) {
+            float speed;
+            if (this.plzLeadWelded) {
+                speed = (float)Math.sqrt(this.plzLeaderVX * this.plzLeaderVX + this.plzLeaderVY * this.plzLeaderVY);
+            } else if (GameClient.client) {
+                speed = this.getNetworkCharacterAI().prediction.speed;
+            } else {
+                speed = (float)Math.sqrt(this.plzDriveVX * this.plzDriveVX + this.plzDriveVY * this.plzDriveVY);
+            }
+
+            float perTile = run ? PLZ_HORSE_TROT_CLIP_PER_TILE : PLZ_HORSE_WALK_CLIP_PER_TILE;
+            this.setVariable("plzLeadSpeed", PZMath.clamp(speed * perTile, 0.6F, 2.5F));
+        } else if (led) {
+            float dist = IsoUtils.DistanceTo(this.getX(), this.getY(), leader.getX(), leader.getY());
+            this.setVariable("plzLeadSpeed", PZMath.clamp(1.0F + (dist - PLZ_LEAD_PACE_FROM) * PLZ_LEAD_PACE_PER_TILE, 1.0F, PLZ_LEAD_PACE_MAX));
+        }
+    }
+
+    // HorseMod's nodes turn root motion off, so the path follower gives a led horse no speed of its own.
+    private void plzDriveLedHorse() {
+        IsoPlayer leader = this.data.getAttachedPlayer();
+        // HorseMod drops the lead on the rider's client only; its mount lock is the one thing that disables an animal's deferred movement.
+        if (leader != null && !this.isDeferredMovementEnabled()) {
+            leader.getAttachedAnimals().remove(this);
+            this.data.setAttachedPlayer(null);
+            leader = null;
+        }
+
+        if (leader == null || !this.getVariableBoolean("isHorse")) {
+            this.plzLeadDriveNanos = 0L;
+            this.plzHorseSide = 0;
+            this.plzDriveActive = false;
+            return;
+        }
+
+        float dt = this.plzTrackLeader(leader);
+        if (dt <= 0.0F) {
+            return;
+        }
+
+        float speed = (float)Math.sqrt(this.plzLeaderVX * this.plzLeaderVX + this.plzLeaderVY * this.plzLeaderVY);
+        this.plzHorseLeaderMoving = speed > PLZ_HORSE_LEAD_MOVING;
+        Vector2 facing = leader.getForwardDirection();
+        float fLen = (float)Math.sqrt(facing.x * facing.x + facing.y * facing.y);
+        float fx = fLen > 0.001F ? facing.x / fLen : 1.0F;
+        float fy = fLen > 0.001F ? facing.y / fLen : 0.0F;
+        this.plzHorseTargetX = leader.getX() + this.plzLeaderVX * PLZ_HORSE_LEAD_LOOKAHEAD + fx * PLZ_HORSE_LEAD_FORWARD - fy * PLZ_HORSE_LEAD_SIDE;
+        this.plzHorseTargetY = leader.getY() + this.plzLeaderVY * PLZ_HORSE_LEAD_LOOKAHEAD + fy * PLZ_HORSE_LEAD_FORWARD + fx * PLZ_HORSE_LEAD_SIDE;
+
+        this.plzHorseErr = IsoUtils.DistanceTo(this.getX(), this.getY(), this.plzHorseTargetX, this.plzHorseTargetY);
+        PathFindBehavior2 pfb = this.getPathFindBehavior2();
+        if (!this.isCurrentState(AnimalPathFindState.instance())) {
+            this.plzRepathTimer = 1.0F;
+        }
+
+        this.plzDriveActive = false;
+        if (this.isCurrentState(AnimalWalkState.instance())) {
+            if (!this.plzHorseLeaderMoving && this.plzHorseErr < PLZ_HORSE_LEAD_SETTLE) {
+                this.setVariable("bMoving", false);
+                return;
+            }
+
+            float vx = this.plzLeaderVX + (this.plzHorseTargetX - this.getX()) * PLZ_HORSE_LEAD_GAIN;
+            float vy = this.plzLeaderVY + (this.plzHorseTargetY - this.getY()) * PLZ_HORSE_LEAD_GAIN;
+            float vLen = (float)Math.sqrt(vx * vx + vy * vy);
+            if (vLen > PLZ_HORSE_LEAD_MAX_SPEED) {
+                vx = vx / vLen * PLZ_HORSE_LEAD_MAX_SPEED;
+                vy = vy / vLen * PLZ_HORSE_LEAD_MAX_SPEED;
+                vLen = PLZ_HORSE_LEAD_MAX_SPEED;
+            }
+
+            this.plzDriveVX = vx;
+            this.plzDriveVY = vy;
+            this.plzDriveActive = true;
+            if (vLen > 0.001F) {
+                // AnimalWalkState drops bMoving within half a tile of its target, so its target is kept ahead of the horse.
+                pfb.setData(this.getX() + vx / vLen * 3.0F, this.getY() + vy / vLen * 3.0F, leader.getZ());
+            }
+
+            this.setVariable("bMoving", true);
+            pfb.walkingOnTheSpot.reset(this.getX(), this.getY());
+        } else if (this.isCurrentState(AnimalPathFindState.instance())) {
+            this.plzRepathTimer -= dt;
+            if (this.plzRepathTimer <= 0.0F && this.plzHorseErr > PLZ_HORSE_LEAD_SET_OFF) {
+                this.plzRepathTimer = 1.0F;
+                this.plzMoveToHorseTarget(leader);
+            }
+
+            float px = pfb.pathNextX - this.getX();
+            float py = pfb.pathNextY - this.getY();
+            float pLen = (float)Math.sqrt(px * px + py * py);
+            if (pfb.pathNextIsSet && pLen > 0.001F) {
+                float mag = PZMath.min(speed + PLZ_HORSE_LEAD_GAIN * this.plzHorseErr, PLZ_HORSE_LEAD_MAX_SPEED);
+                this.plzDriveVX = px / pLen * mag;
+                this.plzDriveVY = py / pLen * mag;
+                this.plzDriveActive = true;
+            }
+        }
+    }
+
+    // Walk state applies deferred movement as given, the path follower uses its length, and the network prediction sends it to clients.
+    @Override
+    protected Vector2 getDeferredMovement(Vector2 result, boolean reset) {
+        super.getDeferredMovement(result, reset);
+        if (this.plzDriveActive && !GameClient.client) {
+            float td = GameTime.getInstance().getTimeDelta();
+            result.set(this.plzDriveVX * td, this.plzDriveVY * td);
+        }
+
+        return result;
+    }
+
+    /** Smoothed leader velocity in tiles a second; returns the seconds since the last call, or 0 when that is unusable. */
+    private float plzTrackLeader(IsoPlayer leader) {
+        long now = System.nanoTime();
+        float dt = this.plzLeadDriveNanos == 0L ? 0.0F : (now - this.plzLeadDriveNanos) / 1.0E9F;
+        this.plzLeadDriveNanos = now;
+        float lx = leader.getX();
+        float ly = leader.getY();
+        boolean usable = dt > 0.0F && dt < 0.5F;
+        if (usable) {
+            float sx = lx - this.plzLeaderLastX;
+            float sy = ly - this.plzLeaderLastY;
+            if (sx * sx + sy * sy < 4.0F) {
+                float blend = PZMath.min(1.0F, dt * 6.0F);
+                this.plzLeaderVX += (sx / dt - this.plzLeaderVX) * blend;
+                this.plzLeaderVY += (sy / dt - this.plzLeaderVY) * blend;
+            }
+        }
+
+        this.plzLeaderLastX = lx;
+        this.plzLeaderLastY = ly;
+        return usable ? dt : 0.0F;
+    }
+
+    // Welded to the leader's rendered position each frame on this client, as an escorted player is, so network lag never shows.
+    private void plzAttachLedHorse() {
+        BaseGrappleable grapple = this.getWrappedGrappleable();
+        IsoPlayer leader = this.data.getAttachedPlayer();
+        boolean want = grapple != null
+            && leader != null
+            && leader.getCurrentSquare() != null
+            && this.getVariableBoolean("isHorse")
+            && !this.getVariableBoolean("HorseRiding")
+            && IsoUtils.DistanceTo(this.realx, this.realy, leader.getX(), leader.getY()) < PLZ_HORSE_LEAD_WELD_RANGE;
+        if (want) {
+            this.plzTrackLeader(leader);
+            if (grapple.plzGetAnchor() != leader) {
+                grapple.plzAttach(leader, PLZ_HORSE_LEAD_SLOT);
+            }
+
+            if (!this.plzLeadWelded) {
+                this.plzLeadWelded = true;
+                this.setVariable("plzLeadWeld", true);
+            }
+
+            // The server's walk, idle and path states flap and each change would restart the clip, so the leader decides here.
+            float speed = (float)Math.sqrt(this.plzLeaderVX * this.plzLeaderVX + this.plzLeaderVY * this.plzLeaderVY);
+            boolean walk = this.plzLeadWalkVar ? speed > PLZ_HORSE_LEAD_WALK_OFF : speed > PLZ_HORSE_LEAD_WALK_ON;
+            if (walk != this.plzLeadWalkVar) {
+                this.plzLeadWalkVar = walk;
+                this.setVariable("plzLeadWalk", walk);
+            }
+        } else if (this.plzLeadWelded) {
+            this.plzLeadWelded = false;
+            this.plzLeadDriveNanos = 0L;
+            this.setVariable("plzLeadWeld", false);
+            if (grapple != null) {
+                grapple.plzDetach();
+            }
+        }
+
+        if (!this.plzLeadWelded) {
+            this.plzGlideRemoteLedHorse();
+        }
+    }
+
+    // The client moves a remote animal at its root-motion speed, which a HorseMod node does not have.
+    private void plzGlideRemoteLedHorse() {
+        if (!this.plzIsLedHorse() || this.getVariableBoolean("HorseRiding")) {
+            this.plzRemoteGlideNanos = 0L;
+            return;
+        }
+
+        long now = System.nanoTime();
+        float dt = this.plzRemoteGlideNanos == 0L ? 0.0F : (now - this.plzRemoteGlideNanos) / 1.0E9F;
+        this.plzRemoteGlideNanos = now;
+        if (dt <= 0.0F || dt >= 0.5F) {
+            return;
+        }
+
+        NetworkPlayerAI ai = this.getNetworkCharacterAI();
+        float dx = ai.targetX - this.getX();
+        float dy = ai.targetY - this.getY();
+        float len = (float)Math.sqrt(dx * dx + dy * dy);
+        if (len < 0.02F || len > 10.0F) {
+            return;
+        }
+
+        float move = PZMath.min((ai.prediction.speed + len * PLZ_HORSE_REMOTE_CATCHUP) * dt, len);
+        this.moveUnmodded(dx / len * move, dy / len * move);
+        if (len > 0.1F) {
+            this.setForwardDirection(dx, dy);
+        } else {
+            this.setForwardDirection(ai.direction);
+        }
+
+        this.getForwardDirection().normalize();
+    }
+
+    public boolean plzIsLedHorse() {
+        return this.data != null && this.data.getAttachedPlayer() != null && this.getVariableBoolean("isHorse");
+    }
+
+    public boolean plzHorseShouldMove() {
+        return this.plzHorseLeaderMoving || this.plzHorseErr > PLZ_HORSE_LEAD_SET_OFF;
+    }
+
+    public void plzMoveToHorseTarget(IsoGameCharacter leader) {
+        this.pathToLocation(PZMath.fastfloor(this.plzHorseTargetX), PZMath.fastfloor(this.plzHorseTargetY), PZMath.fastfloor(leader.getZ()));
+    }
+
+    public static boolean plzLeaderRuns(IsoGameCharacter leader) {
+        return leader != null && leader.isPlayerMoving() && (leader.isRunning() || leader.isSprinting());
+    }
+
     /**
      * PLZ: the Lua bridge for {@link PLZAnimalCalm}.
      *
@@ -2951,11 +3263,11 @@ public class IsoAnimal extends IsoPlayer implements IAnimalVisual {
     @Override
     public void pathToCharacter(IsoGameCharacter target) {
         int ropeLength = 15;
-        if (this.data.getAttachedPlayer() == null || !(this.data.getAttachedPlayer().DistToProper(target) > 15.0F)) {
+        if (this.data.getAttachedPlayer() == null || !(this.data.getAttachedPlayer().DistToProper(target) > PLZ_LEAD_ROPE)) {
             if (this.data.getAttachedTree() != null) {
                 int treeX = this.data.getAttachedTreeX();
                 int treeY = this.data.getAttachedTreeY();
-                if (IsoUtils.DistanceTo(treeX + 0.5F, treeY + 0.5F, target.getX(), target.getY()) > 15.0F) {
+                if (IsoUtils.DistanceTo(treeX + 0.5F, treeY + 0.5F, target.getX(), target.getY()) > PLZ_TETHER_ROPE) {
                     return;
                 }
             }
@@ -2978,11 +3290,11 @@ public class IsoAnimal extends IsoPlayer implements IAnimalVisual {
         int ropeLength = 15;
         if (this.data.getAttachedPlayer() == null
             || this.data.getAttachedPlayer().getCurrentSquare() == null
-            || !(this.data.getAttachedPlayer().getCurrentSquare().DistToProper(x, y) > 15.0F)) {
+            || !(this.data.getAttachedPlayer().getCurrentSquare().DistToProper(x, y) > PLZ_LEAD_ROPE)) {
             if (this.data.getAttachedTree() != null) {
                 int treeX = this.data.getAttachedTreeX();
                 int treeY = this.data.getAttachedTreeY();
-                if (IsoUtils.DistanceTo(treeX + 0.5F, treeY + 0.5F, x + 0.5F, y + 0.5F) > 15.0F) {
+                if (IsoUtils.DistanceTo(treeX + 0.5F, treeY + 0.5F, x + 0.5F, y + 0.5F) > PLZ_TETHER_ROPE) {
                     return;
                 }
             }
@@ -3166,6 +3478,12 @@ public class IsoAnimal extends IsoPlayer implements IAnimalVisual {
     }
 
     public void setDZone(DesignationZoneAnimal dZone) {
+        // Re-adding moved the animal to the end of the list doMeta is walking by index, so the next animal was skipped.
+        if (dZone != null && dZone == this.dZone && !GameClient.client && zombie.plz.PLZFixes.on(zombie.plz.PLZFixes.ANIMAL_CATCH_UP)
+            && dZone.getAnimals().contains(this)) {
+            return;
+        }
+
         if (this.dZone != null) {
             this.dZone.removeAnimal(this);
         }

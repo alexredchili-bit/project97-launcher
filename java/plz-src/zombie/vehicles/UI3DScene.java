@@ -68,6 +68,9 @@ import zombie.core.textures.TextureDraw;
 import zombie.debug.DebugOptions;
 import zombie.debug.DebugType;
 import zombie.debug.LineDrawer;
+import zombie.inventory.types.HandWeapon;
+import zombie.inventory.types.WeaponPart;
+import zombie.scripting.objects.ModelWeaponPart;
 import zombie.input.GameKeyboard;
 import zombie.input.Mouse;
 import zombie.iso.IsoDirections;
@@ -116,6 +119,12 @@ public final class UI3DScene extends UIElement {
     private UI3DScene.GridPlane gridPlane = UI3DScene.GridPlane.YZ;
     private final Matrix4f projection = new Matrix4f();
     private final Matrix4f modelView = new Matrix4f();
+    private static final HashMap<String, java.awt.image.BufferedImage> plzImages = new HashMap<>();
+    private static final HashMap<String, float[]> plzMeshPoints = new HashMap<>();
+    private boolean plzPerspective;
+    private float plzFov = 50.0F;
+    private float plzNear = 0.02F;
+    private float plzFar = 500.0F;
     private static final long VIEW_CHANGE_TIME = 350L;
     private long viewChangeTime;
     private final Quaternionf modelViewChange = new Quaternionf();
@@ -546,6 +555,20 @@ public final class UI3DScene extends UIElement {
 
     public Object fromLua1(String func, Object arg0) {
         switch (func) {
+            case "plzSetPerspective": {
+                this.plzPerspective = (Boolean)arg0;
+                this.calcMatrices(this.projection, this.modelView);
+                return null;
+            }
+            case "plzSetFov": {
+                this.plzFov = PZMath.clamp(((Double)arg0).floatValue(), 1.0F, 170.0F);
+                this.calcMatrices(this.projection, this.modelView);
+                return null;
+            }
+            case "plzClearObjectTransform": {
+                this.getSceneObjectById((String)arg0, true).plzTransform = null;
+                return null;
+            }
             case "addCylinderAABB": {
                 UI3DScene.SceneCylinder object = this.getSceneObjectById((String)arg0, UI3DScene.SceneCylinder.class, true);
                 this.aabb.add(object.getAABB(s_aabbPool.alloc()));
@@ -952,6 +975,60 @@ public final class UI3DScene extends UIElement {
 
     public Object fromLua2(String func, Object arg0, Object arg1) {
         switch (func) {
+            case "plzCreatePlayerCharacter": {
+                return this.plzCreatePlayerCharacter((String)arg0, (zombie.characters.IsoGameCharacter)arg1);
+            }
+            case "plzPoseCharacterToGun": {
+                return this.plzPoseCharacterToGun((String)arg0, (String)arg1, null);
+            }
+            case "plzHandsReport": {
+                return this.plzHandsReport((String)arg0, (String)arg1);
+            }
+            case "plzSetArmsOnly": {
+                ((UI3DScene.SceneCharacter)this.getSceneObjectById((String)arg0, true)).plzArmsRoot = (String)arg1;
+                return plzResolveArmsFields();
+            }
+            case "plzSetClip": {
+                this.plzNear = Math.max(0.001F, ((Double)arg0).floatValue());
+                this.plzFar = Math.max(this.plzNear + 0.01F, ((Double)arg1).floatValue());
+                this.calcMatrices(this.projection, this.modelView);
+                return null;
+            }
+            case "plzSetObjectTransform": {
+                UI3DScene.SceneObject sceneObject = this.getSceneObjectById((String)arg0, true);
+                KahluaTable m = (KahluaTable)arg1;
+                float[] v = new float[16];
+                for (int i = 0; i < 16; i++) {
+                    v[i] = ((Double)m.rawget(i + 1)).floatValue();
+                }
+
+                if (sceneObject.plzTransform == null) {
+                    sceneObject.plzTransform = new Matrix4f();
+                }
+
+                sceneObject.plzTransform.set(v);
+                return null;
+            }
+            case "plzCreateWeaponModel": {
+                return this.plzCreateWeaponModel((String)arg0, (HandWeapon)arg1);
+            }
+            case "plzGetAttachment": {
+                ModelScript modelScript = ScriptManager.instance.getModelScript((String)arg0);
+                ModelAttachment attachment = modelScript == null ? null : modelScript.getAttachmentById((String)arg1);
+                if (attachment == null) {
+                    return null;
+                }
+
+                KahluaTable t = LuaManager.platform.newTable();
+                t.rawset("x", (double)attachment.getOffset().x);
+                t.rawset("y", (double)attachment.getOffset().y);
+                t.rawset("z", (double)attachment.getOffset().z);
+                t.rawset("rx", (double)attachment.getRotate().x);
+                t.rawset("ry", (double)attachment.getRotate().y);
+                t.rawset("rz", (double)attachment.getRotate().z);
+                t.rawset("scale", (double)attachment.getScale());
+                return t;
+            }
             case "addAttachment": {
                 UI3DScene.SceneModel sceneModel = this.getSceneObjectById((String)arg0, UI3DScene.SceneModel.class, true);
                 if (sceneModel.modelScript.getAttachmentById((String)arg1) != null) {
@@ -1541,6 +1618,21 @@ public final class UI3DScene extends UIElement {
 
     public Object fromLua3(String func, Object arg0, Object arg1, Object arg2) {
         switch (func) {
+            case "plzMirrorPose": {
+                UI3DScene.SceneCharacter mirrored = (UI3DScene.SceneCharacter)this.getSceneObjectById((String)arg0, true);
+                mirrored.plzPoseSource = (zombie.characters.IsoGameCharacter)arg1;
+                mirrored.plzPoseWeight = PZMath.clamp(((Double)arg2).floatValue(), 0.0F, 1.0F);
+                return null;
+            }
+            case "plzPoseCharacterToGun": {
+                return this.plzPoseCharacterToGun((String)arg0, (String)arg1, (KahluaTable)arg2);
+            }
+            case "plzMeasureSights": {
+                return this.plzMeasureSights((String)arg0, ((Double)arg1).floatValue(), ((Double)arg2).floatValue());
+            }
+            case "plzSampleImage": {
+                return BoxedStaticValues.toDouble(plzSampleImage((String)arg0, ((Double)arg1).floatValue(), ((Double)arg2).floatValue()));
+            }
             case "addAxis": {
                 float x = ((Double)arg0).floatValue();
                 float y = ((Double)arg1).floatValue();
@@ -1777,6 +1869,9 @@ public final class UI3DScene extends UIElement {
 
     public Object fromLua4(String func, Object arg0, Object arg1, Object arg2, Object arg3) {
         switch (func) {
+            case "plzGunToHand": {
+                return this.plzGunToHand((String)arg0, (String)arg1, (KahluaTable)arg2, ((Double)arg3).floatValue());
+            }
             case "setVehiclePaintColor": {
                 UI3DScene.SceneVehicle vehicle = this.getSceneObjectById((String)arg0, UI3DScene.SceneVehicle.class, true);
                 float h = arg1 == null ? 0.0F : ((Double)arg1).floatValue();
@@ -2705,7 +2800,836 @@ public final class UI3DScene extends UIElement {
         PZGLUtil.popMatrix(5888);
     }
 
+    private static java.awt.image.BufferedImage plzImage(String path) {
+        java.awt.image.BufferedImage image = plzImages.get(path);
+        if (image == null && !plzImages.containsKey(path)) {
+            try {
+                String abs = zombie.ZomboidFileSystem.instance.getString(path);
+                image = javax.imageio.ImageIO.read(new java.io.File(abs));
+            } catch (Exception e) {
+                DebugType.General.warn("plzImage: cannot read " + path);
+                image = null;
+            }
+
+            plzImages.put(path, image);
+        }
+
+        return image;
+    }
+
+    private static final java.util.HashMap<String, IsoSprite> plzPosters = new java.util.HashMap<>();
+    private static final int PLZ_TILE_W = 128;
+    private static final int PLZ_TILE_H = 256;
+    private static final float PLZ_PX_PER_M = 64.0F;
+    private static final float PLZ_WALL_FLOOR_Y = 208.0F;
+    private static final float PLZ_POSTER_CENTRE_UP = 96.0F;
+
+    private static java.awt.image.BufferedImage plzScaled(java.awt.image.BufferedImage src, int w, int h) {
+        java.awt.image.BufferedImage cur = src;
+        int cw = src.getWidth();
+        int ch = src.getHeight();
+        while (cw / 2 >= w && ch / 2 >= h) {
+            cw /= 2;
+            ch /= 2;
+            cur = plzDraw(cur, cw, ch);
+        }
+
+        return plzDraw(cur, w, h);
+    }
+
+    private static java.awt.image.BufferedImage plzDraw(java.awt.image.BufferedImage src, int w, int h) {
+        java.awt.image.BufferedImage out = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g = out.createGraphics();
+        g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        g.setRenderingHint(java.awt.RenderingHints.KEY_RENDERING, java.awt.RenderingHints.VALUE_RENDER_QUALITY);
+        g.drawImage(src, 0, 0, w, h, null);
+        g.dispose();
+        return out;
+    }
+
+    private static int plzBilinear(java.awt.image.BufferedImage img, float fx, float fy) {
+        int w = img.getWidth();
+        int h = img.getHeight();
+        int x0 = Math.max(0, Math.min(w - 1, (int)Math.floor(fx)));
+        int y0 = Math.max(0, Math.min(h - 1, (int)Math.floor(fy)));
+        int x1 = Math.min(w - 1, x0 + 1);
+        int y1 = Math.min(h - 1, y0 + 1);
+        float ax = Math.max(0.0F, Math.min(1.0F, fx - x0));
+        float ay = Math.max(0.0F, Math.min(1.0F, fy - y0));
+        int[] c = { img.getRGB(x0, y0), img.getRGB(x1, y0), img.getRGB(x0, y1), img.getRGB(x1, y1) };
+        float[] wt = { (1 - ax) * (1 - ay), ax * (1 - ay), (1 - ax) * ay, ax * ay };
+        float a = 0.0F;
+        float r = 0.0F;
+        float g = 0.0F;
+        float b = 0.0F;
+        for (int i = 0; i < 4; i++) {
+            float ca = (c[i] >>> 24) / 255.0F * wt[i];
+            a += ca;
+            r += (c[i] >> 16 & 255) * ca;
+            g += (c[i] >> 8 & 255) * ca;
+            b += (c[i] & 255) * ca;
+        }
+
+        if (a <= 0.0F) {
+            return 0;
+        }
+
+        return Math.round(a * 255.0F) << 24 | Math.round(r / a) << 16 | Math.round(g / a) << 8 | Math.round(b / a);
+    }
+
+    private static java.awt.image.BufferedImage plzPosterImage(
+        java.awt.image.BufferedImage paper, KahluaTable holes, boolean north, double widthM, double heightM
+    ) {
+        int pw = Math.max(4, Math.round((float)widthM * PLZ_PX_PER_M));
+        int ph = Math.max(4, Math.round((float)heightM * PLZ_PX_PER_M));
+        java.awt.image.BufferedImage small = plzScaled(paper, pw, ph);
+        java.awt.Graphics2D g = small.createGraphics();
+        g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setColor(new java.awt.Color(24, 18, 14, 240));
+        float r = Math.max(1.1F, pw * 0.025F);
+        int n = holes == null ? 0 : holes.len();
+        for (int i = 1; i <= n; i++) {
+            Object row = holes.rawget(i);
+            if (row instanceof KahluaTable hole) {
+                float u = (float)plzNumber(hole, "u", -1.0);
+                float v = (float)plzNumber(hole, "v", -1.0);
+                if (u >= 0.0F && u <= 1.0F && v >= 0.0F && v <= 1.0F) {
+                    g.fill(new java.awt.geom.Ellipse2D.Float(u * pw - r, v * ph - r, r * 2.0F, r * 2.0F));
+                }
+            }
+        }
+
+        g.dispose();
+        java.awt.image.BufferedImage out = new java.awt.image.BufferedImage(PLZ_TILE_W, PLZ_TILE_H, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        float cx = north ? PLZ_TILE_W * 0.75F : PLZ_TILE_W * 0.25F;
+        float cy = PLZ_WALL_FLOOR_Y - PLZ_POSTER_CENTRE_UP;
+        // the wall face runs half a pixel down per pixel across, rightward on a north wall, leftward on a west one
+        float slope = north ? 0.5F : -0.5F;
+        for (int y = 0; y < PLZ_TILE_H; y++) {
+            for (int x = 0; x < PLZ_TILE_W; x++) {
+                float dx = x + 0.5F - cx;
+                float dy = y + 0.5F - cy;
+                float su = 0.5F + dx / pw;
+                float sv = 0.5F + (dy - slope * dx) / ph;
+                if (su >= 0.0F && su < 1.0F && sv >= 0.0F && sv < 1.0F) {
+                    out.setRGB(x, y, plzBilinear(small, su * pw - 0.5F, sv * ph - 0.5F));
+                }
+            }
+        }
+
+        return out;
+    }
+
+    private static org.lwjglx.input.Cursor plzBlankCursor;
+    private static org.lwjglx.input.Cursor plzDefaultCursor;
+
+    // Mouse.setCursorVisible only hides the cursor the game draws itself; with the cursor not locked to the window the OS draws it
+    public static void plzHideCursor(boolean hidden) {
+        try {
+            if (plzBlankCursor == null) {
+                plzBlankCursor = zombie.input.Mouse.loadCursor("cursor_blank.png");
+                plzDefaultCursor = zombie.input.Mouse.loadCursor("cursor_white.png");
+            }
+
+            org.lwjglx.input.Mouse.setNativeCursor(hidden ? plzBlankCursor : plzDefaultCursor);
+        } catch (Exception e) {
+            DebugType.General.warn("plzHideCursor: " + e);
+        }
+    }
+
+    public static IsoSprite plzPosterSprite(String key, String paperPath, KahluaTable holes, boolean north, double widthM, double heightM) {
+        IsoSprite cached = plzPosters.get(key);
+        if (cached != null) {
+            return cached;
+        }
+
+        java.io.File file = new java.io.File(zombie.ZomboidFileSystem.instance.getCacheDirSub("plzposters"), key + ".png");
+        if (!file.exists()) {
+            java.awt.image.BufferedImage paper = plzImage(paperPath);
+            if (paper == null) {
+                return null;
+            }
+
+            try {
+                file.getParentFile().mkdirs();
+                javax.imageio.ImageIO.write(plzPosterImage(paper, holes, north, widthM, heightM), "png", file);
+            } catch (java.io.IOException e) {
+                DebugType.General.warn("plzPosterSprite: cannot write " + file + " " + e);
+                return null;
+            }
+        }
+
+        Texture texture;
+        try {
+            texture = new Texture(file.getAbsolutePath());
+        } catch (Exception e) {
+            DebugType.General.warn("plzPosterSprite: cannot load " + file + " " + e);
+            return null;
+        }
+
+        IsoSprite sprite = new IsoSprite();
+        sprite.texture = texture;
+        sprite.setName("plzposter_" + key);
+        sprite.getProperties().set(zombie.iso.SpriteDetails.IsoFlagType.WallOverlay);
+        sprite.getProperties().set(north ? zombie.iso.SpriteDetails.IsoFlagType.attachedN : zombie.iso.SpriteDetails.IsoFlagType.attachedW);
+        plzPosters.put(key, sprite);
+        return sprite;
+    }
+
+    private static double plzSampleImage(String path, float u, float v) {
+        java.awt.image.BufferedImage image = plzImage(path);
+        if (image == null || u < 0.0F || v < 0.0F || u >= 1.0F || v >= 1.0F) {
+            return -1.0;
+        }
+
+        int argb = image.getRGB((int)(u * image.getWidth()), (int)(v * image.getHeight()));
+        if ((argb >>> 24) < 128) {
+            return -1.0;
+        }
+
+        return argb & 16777215;
+    }
+
+    private static final java.util.Set<String> PLZ_HEAD_LOCATIONS = java.util.Set.of(
+        "hat", "fullhat", "eyes", "lefteye", "righteye", "ears", "eartop", "nose", "fullsuithead", "fullsuitheadscba"
+    );
+
+    private static boolean plzIsHeadLocation(String location) {
+        String name = location.toLowerCase(java.util.Locale.ROOT);
+        int colon = name.indexOf(':');
+        if (colon >= 0) {
+            name = name.substring(colon + 1);
+        }
+
+        return PLZ_HEAD_LOCATIONS.contains(name) || name.startsWith("mask") || name.startsWith("makeup");
+    }
+
+    private Boolean plzCreatePlayerCharacter(String id, zombie.characters.IsoGameCharacter source) {
+        if (this.getSceneObjectById(id, false) != null) {
+            throw new IllegalStateException("scene object \"" + id + "\" exists");
+        }
+
+        UI3DScene.SceneCharacter character = new UI3DScene.ScenePlayer(this, id);
+        character.initAnimatedModel();
+        this.objects.add(character);
+        if (!(source instanceof zombie.core.skinnedmodel.visual.IHumanVisual human) || human.getHumanVisual() == null) {
+            return Boolean.FALSE;
+        }
+
+        zombie.core.skinnedmodel.visual.ItemVisuals itemVisuals = new zombie.core.skinnedmodel.visual.ItemVisuals();
+        source.getItemVisuals(itemVisuals);
+        for (int i = itemVisuals.size() - 1; i >= 0; i--) {
+            zombie.scripting.objects.Item script = itemVisuals.get(i).getScriptItem();
+            if (script != null && script.getBodyLocation() != null && plzIsHeadLocation(script.getBodyLocation().toString())) {
+                itemVisuals.remove(i);
+            }
+        }
+
+        HumanVisual visual = new HumanVisual(character.animatedModel);
+        visual.copyFrom(human.getHumanVisual());
+        visual.setHairModel("Bald");
+        visual.setBeardModel("");
+        // initAnimatedModel queues a Naked outfit that the first update would dress over these clothes
+        character.animatedModel.setOutfitName(null, visual.isFemale(), false);
+        character.animatedModel.setModelData(visual, itemVisuals);
+        character.animatedModel.setAlpha(1.0F);
+        character.clearDepthBuffer = false;
+        return Boolean.TRUE;
+    }
+
+    private static double plzNumber(KahluaTable t, String key, double fallback) {
+        Object v = t == null ? null : t.rawget(key);
+        return v instanceof Double d ? d : fallback;
+    }
+
+    private static Matrix4f plzHandsCorrection(KahluaTable t, Matrix4f out) {
+        out.identity();
+        out.rotateXYZ(
+            (float)Math.toRadians(plzNumber(t, "rx", 0.0)),
+            (float)Math.toRadians(plzNumber(t, "ry", 0.0)),
+            (float)Math.toRadians(plzNumber(t, "rz", 0.0))
+        );
+        float sx = (float)plzNumber(t, "sx", 1.0);
+        float s = (float)plzNumber(t, "scale", 1.0);
+        out.scale(sx * s, s, s);
+        return out;
+    }
+
+    private static Matrix4f plzRightCorrection(KahluaTable t, Matrix4f out) {
+        out.identity();
+        out.rotateXYZ(
+            (float)Math.toRadians(plzNumber(t, "wrx", 0.0)),
+            (float)Math.toRadians(plzNumber(t, "wry", 0.0)),
+            (float)Math.toRadians(plzNumber(t, "wrz", 0.0))
+        );
+        return out;
+    }
+
+    private static void plzPut(KahluaTable t, String prefix, Matrix4f m) {
+        Vector3f p = m.getTranslation(allocVector3f());
+        t.rawset(prefix + "x", (double)p.x);
+        t.rawset(prefix + "y", (double)p.y);
+        t.rawset(prefix + "z", (double)p.z);
+        releaseVector3f(p);
+    }
+
+    private KahluaTable plzHandsReport(String characterId, String gunId) {
+        UI3DScene.SceneCharacter character = this.getSceneObjectById(characterId, UI3DScene.SceneCharacter.class, true);
+        UI3DScene.SceneModel gun = this.getSceneObjectById(gunId, UI3DScene.SceneModel.class, true);
+        KahluaTable t = LuaManager.platform.newTable();
+        Matrix4f root = character.getGlobalTransform(allocMatrix4f());
+        String[] bones = new String[]{"Bip01_Prop1", "Bip01_R_Hand", "Bip01_L_Hand", "Bip01_Head", "Bip01"};
+        for (String bone : bones) {
+            Matrix4f b = character.getBoneMatrix(bone, allocMatrix4f());
+            Matrix4f w = allocMatrix4f().set(root).mul(b);
+            plzPut(t, bone + "_", w);
+            plzPut(t, bone + "_local_", b);
+            releaseMatrix4f(w);
+            releaseMatrix4f(b);
+        }
+
+        Matrix4f g = gun.getGlobalTransform(allocMatrix4f());
+        plzPut(t, "gun_", g);
+        Matrix4f head = allocMatrix4f().set(root).mul(character.getBoneMatrix("Bip01_Head", allocMatrix4f()));
+        Matrix4f inGun = allocMatrix4f().set(g).invert().mul(head);
+        plzPut(t, "head_gun_", inGun);
+        t.rawset("det", (double)root.determinant());
+        releaseMatrix4f(inGun);
+        releaseMatrix4f(head);
+        plzPut(t, "root_", root);
+        releaseMatrix4f(g);
+        releaseMatrix4f(root);
+        return t;
+    }
+
+    private Matrix4f plzHeldTransform(UI3DScene.SceneCharacter character, UI3DScene.SceneModel gun, KahluaTable correction, Matrix4f out) {
+        character.getBoneMatrix("Bip01_Prop1", out);
+        ModelAttachment held = gun.modelScript.getAttachmentById("Bip01_Prop1");
+        if (held != null) {
+            Matrix4f self = ModelInstanceRenderData.makeAttachmentTransform(held, allocMatrix4f());
+            out.mul(self);
+            releaseMatrix4f(self);
+        }
+
+        Matrix4f inner = plzHandsCorrection(correction, allocMatrix4f());
+        inner.mul(out, out);
+        releaseMatrix4f(inner);
+        Matrix4f outer = plzRightCorrection(correction, allocMatrix4f());
+        out.mul(outer);
+        releaseMatrix4f(outer);
+        return out;
+    }
+
+    private static void plzLerp(Matrix4f from, Matrix4f to, float w, Matrix4f out) {
+        for (int c = 0; c < 4; c++) {
+            for (int r = 0; r < 4; r++) {
+                out.setRowColumn(r, c, from.getRowColumn(r, c) + (to.getRowColumn(r, c) - from.getRowColumn(r, c)) * w);
+            }
+        }
+    }
+
+    private Boolean plzGunToHand(String characterId, String gunId, KahluaTable correction, float weight) {
+        UI3DScene.SceneCharacter character = this.getSceneObjectById(characterId, UI3DScene.SceneCharacter.class, true);
+        UI3DScene.SceneModel gun = this.getSceneObjectById(gunId, UI3DScene.SceneModel.class, true);
+        if (character.plzAimHeld == null || gun.plzTransform == null
+            || character.animatedModel.getAnimationPlayer().getModelTransformsCount() == 0) {
+            return Boolean.FALSE;
+        }
+
+        float w = PZMath.clamp(weight, 0.0F, 1.0F);
+        float bodyScale = (float)plzNumber(correction, "bodyScale", 1.0);
+        Matrix4f aimRoot = allocMatrix4f().set(character.plzAimHeld).invert();
+        Matrix4f scratch = allocMatrix4f().set(gun.plzTransform).scale(bodyScale);
+        aimRoot.mulLocal(scratch);
+        Vector3f look = character.getBoneMatrix("Bip01_Prop1", scratch).getTranslation(new Vector3f());
+        releaseMatrix4f(scratch);
+        aimRoot.transformPosition(look);
+        if (!character.plzFollowing) {
+            character.plzFollowing = true;
+            character.plzLookAnchor.set(look);
+            character.plzLook.set(look);
+        } else {
+            character.plzLook.lerp(look, (float)plzNumber(correction, "reloadFollow", 0.08));
+        }
+
+        // the arms slide to keep the gun framed; turning the view instead would leave the 2D lane behind
+        Matrix4f eyeRoot = allocMatrix4f().translation(
+            character.plzLookAnchor.x - character.plzLook.x,
+            character.plzLookAnchor.y - character.plzLook.y - (float)plzNumber(correction, "reloadDrop", 0.04),
+            character.plzLookAnchor.z - character.plzLook.z
+        );
+        eyeRoot.mul(aimRoot);
+        if (character.plzTransform == null) {
+            character.plzTransform = new Matrix4f();
+        }
+
+        plzLerp(aimRoot, eyeRoot, w, character.plzTransform);
+        Matrix4f held = this.plzHeldTransform(character, gun, correction, allocMatrix4f());
+        held.mulLocal(character.plzTransform);
+        held.scale(1.0F / bodyScale);
+        plzLerp(gun.plzTransform, held, w, gun.plzTransform);
+        character.animatedModel.setCullFace(character.plzTransform.determinant() < 0.0F ? 1028 : 1029);
+        releaseMatrix4f(held);
+        releaseMatrix4f(eyeRoot);
+        releaseMatrix4f(aimRoot);
+        return Boolean.TRUE;
+    }
+
+    private static final FloatBuffer plzPoseFrom = BufferUtils.createFloatBuffer(16);
+    private static final FloatBuffer plzPoseTo = BufferUtils.createFloatBuffer(16);
+
+    private static void plzCopyPose(AnimationPlayer from, AnimationPlayer to, float weight) {
+        if (weight <= 0.0F || from == null || to == null || from.getModelTransformsCount() != to.getModelTransformsCount()) {
+            return;
+        }
+
+        int count = from.getModelTransformsCount();
+        for (int i = 0; i < count; i++) {
+            org.lwjgl.util.vector.Matrix4f target = to.getModelTransformAt(i);
+            if (weight >= 1.0F) {
+                target.load(from.getModelTransformAt(i));
+                continue;
+            }
+
+            plzPoseFrom.clear();
+            from.getModelTransformAt(i).store(plzPoseFrom);
+            plzPoseTo.clear();
+            target.store(plzPoseTo);
+            for (int k = 0; k < 16; k++) {
+                plzPoseTo.put(k, plzPoseTo.get(k) + (plzPoseFrom.get(k) - plzPoseTo.get(k)) * weight);
+            }
+
+            plzPoseTo.rewind();
+            target.load(plzPoseTo);
+        }
+
+        to.UpdateSkinTransforms();
+    }
+
+    private Boolean plzPoseCharacterToGun(String characterId, String gunId, KahluaTable correction) {
+        UI3DScene.SceneCharacter character = this.getSceneObjectById(characterId, UI3DScene.SceneCharacter.class, true);
+        UI3DScene.SceneModel gun = this.getSceneObjectById(gunId, UI3DScene.SceneModel.class, true);
+        if (character.animatedModel.getAnimationPlayer().getModelTransformsCount() == 0) {
+            return Boolean.FALSE;
+        }
+
+        Matrix4f hand = character.getBoneMatrix("Bip01_Prop1", allocMatrix4f());
+        ModelAttachment held = gun.modelScript.getAttachmentById("Bip01_Prop1");
+        if (held != null) {
+            Matrix4f self = ModelInstanceRenderData.makeAttachmentTransform(held, allocMatrix4f());
+            hand.mul(self);
+            releaseMatrix4f(self);
+        }
+
+        Matrix4f inner = plzHandsCorrection(correction, allocMatrix4f());
+        inner.mul(hand, hand);
+        releaseMatrix4f(inner);
+        Matrix4f outer = plzRightCorrection(correction, allocMatrix4f());
+        hand.mul(outer);
+        releaseMatrix4f(outer);
+        if (character.plzAimHeld == null) {
+            character.plzAimHeld = new Matrix4f();
+        }
+
+        character.plzAimHeld.set(hand);
+        character.plzFollowing = false;
+        hand.invert();
+        Matrix4f gunXfrm = gun.getGlobalTransform(allocMatrix4f());
+        float bodyScale = (float)plzNumber(correction, "bodyScale", 1.0);
+        gunXfrm.scale(bodyScale);
+        if (character.plzTransform == null) {
+            character.plzTransform = new Matrix4f();
+        }
+
+        gunXfrm.mul(hand, character.plzTransform);
+        // the scene's own character transform is mirrored and culls front faces; a solved one may not be
+        character.animatedModel.setCullFace(character.plzTransform.determinant() < 0.0F ? 1028 : 1029);
+        releaseMatrix4f(gunXfrm);
+        releaseMatrix4f(hand);
+        return Boolean.TRUE;
+    }
+
+    private static java.lang.reflect.Field plzStateInfosField;
+    private static java.lang.reflect.Field plzInstDataField;
+    private static java.lang.reflect.Field plzReadyDataField;
+    private static final float[] plzCollapse = new float[16];
+    private static final FloatBuffer plzTmp = BufferUtils.createFloatBuffer(16);
+    private static final int[] plzLinear = {0, 1, 2, 4, 5, 6, 8, 9, 10};
+
+    private static boolean plzIsArmBone(SkinningBone bone, String root) {
+        for (SkinningBone b = bone; b != null; b = b.parent) {
+            if (b.name != null && b.name.endsWith(root)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static org.lwjgl.util.vector.Matrix4f plzJoint(AnimationPlayer player, String name) {
+        SkinningData skel = player.getSkinningData();
+        SkinningBone bone = skel == null ? null : skel.getBone(name);
+        if (bone == null || bone.index >= player.getModelTransformsCount()) {
+            return null;
+        }
+
+        return player.getModelTransformAt(bone.index);
+    }
+
+    private static void plzCollapseTo(org.lwjgl.util.vector.Matrix4f joint, org.lwjgl.util.vector.Matrix4f other) {
+        FloatBuffer tmp = plzTmp;
+        tmp.clear();
+        joint.store(tmp);
+        tmp.flip();
+        tmp.get(plzCollapse);
+        if (other != null) {
+            tmp.clear();
+            other.store(tmp);
+            tmp.flip();
+            for (int k = 0; k < 16; k++) {
+                plzCollapse[k] = (plzCollapse[k] + tmp.get(k)) * 0.5F;
+            }
+        }
+
+        for (int k : plzLinear) {
+            plzCollapse[k] = 0.0F;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void plzArmsOnly(AnimatedModel model, String root) {
+        AnimationPlayer player = model.getAnimationPlayer();
+        if (player == null) {
+            return;
+        }
+
+        org.lwjgl.util.vector.Matrix4f left = plzJoint(player, "Bip01_L" + root);
+        org.lwjgl.util.vector.Matrix4f right = plzJoint(player, "Bip01_R" + root);
+        if (left == null || right == null) {
+            return;
+        }
+
+        if (!plzResolveArmsFields()) {
+            return;
+        }
+
+        try {
+            AnimatedModel.StateInfo stateInfo = ((AnimatedModel.StateInfo[])plzStateInfosField.get(model))[SpriteRenderer.instance.getMainStateIndex()];
+            plzArmsOnly((ArrayList<AnimatedModel.AnimatedModelInstanceRenderData>)plzInstDataField.get(stateInfo), root, left, right);
+            plzArmsOnly((ArrayList<AnimatedModel.AnimatedModelInstanceRenderData>)plzReadyDataField.get(stateInfo), root, left, right);
+        } catch (ReflectiveOperationException | ClassCastException e) {
+            plzArmsFieldsResolved = Boolean.FALSE;
+            DebugType.General.warn("PLZ gun range: arms-only render unavailable, " + e);
+        }
+    }
+
+    private static Boolean plzArmsFieldsResolved;
+
+    // reads AnimatedModel internals by name; a game update that renames them must hide the arms, not crash
+    private static Boolean plzResolveArmsFields() {
+        if (plzArmsFieldsResolved != null) {
+            return plzArmsFieldsResolved;
+        }
+
+        try {
+            plzStateInfosField = AnimatedModel.class.getDeclaredField("stateInfos");
+            plzStateInfosField.setAccessible(true);
+            plzInstDataField = AnimatedModel.StateInfo.class.getDeclaredField("instData");
+            plzInstDataField.setAccessible(true);
+            plzReadyDataField = AnimatedModel.StateInfo.class.getDeclaredField("readyData");
+            plzReadyDataField.setAccessible(true);
+            plzArmsFieldsResolved = Boolean.TRUE;
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            plzArmsFieldsResolved = Boolean.FALSE;
+            DebugType.General.warn("PLZ gun range: arms-only render unavailable, " + e);
+        }
+
+        return plzArmsFieldsResolved;
+    }
+
+    private static void plzArmsOnly(
+        ArrayList<AnimatedModel.AnimatedModelInstanceRenderData> list, String root, org.lwjgl.util.vector.Matrix4f left, org.lwjgl.util.vector.Matrix4f right
+    ) {
+        for (int i = 0; i < list.size(); i++) {
+            AnimatedModel.AnimatedModelInstanceRenderData data = list.get(i);
+            FloatBuffer palette = data.matrixPalette;
+            if (palette == null || data.modelInstance == null || data.modelInstance.model == null) {
+                continue;
+            }
+
+            SkinningData skin = (SkinningData)data.modelInstance.model.tag;
+            if (skin == null) {
+                continue;
+            }
+
+            zombie.core.rendering.ShaderParameter param = data.properties.GetParameter("MatrixPalette");
+            org.lwjgl.util.vector.Matrix4f[] bones = param == null ? null : param.GetMatrix4Array();
+            int count = Math.min(palette.limit() / 16, skin.numBones());
+            for (int b = 0; b < count; b++) {
+                SkinningBone bone = skin.getBoneAt(b);
+                if (bone == null || plzIsArmBone(bone, root)) {
+                    continue;
+                }
+
+                if (bone.name != null && bone.name.contains("_L_")) {
+                    plzCollapseTo(left, null);
+                } else if (bone.name != null && bone.name.contains("_R_")) {
+                    plzCollapseTo(right, null);
+                } else {
+                    plzCollapseTo(left, right);
+                }
+
+                for (int k = 0; k < 16; k++) {
+                    palette.put(b * 16 + k, plzCollapse[k]);
+                }
+
+                if (bones != null && b < bones.length && bones[b] != null) {
+                    palette.position(b * 16);
+                    bones[b].load(palette);
+                    palette.position(0);
+                }
+            }
+        }
+    }
+
+    public static void plzMuzzleFlash(zombie.characters.IsoGameCharacter character) {
+        if (character != null) {
+            zombie.EffectsManager.getInstance().startMuzzleFlash(character, 1);
+        }
+    }
+
+    private static float[] plzPointsOf(UI3DScene.SceneModel sceneModel) {
+        String key = sceneModel.modelScript.getName();
+        if (plzMeshPoints.containsKey(key)) {
+            return plzMeshPoints.get(key);
+        }
+
+        float[] points = null;
+        zombie.core.skinnedmodel.model.ModelMesh mesh = sceneModel.model.mesh;
+        zombie.core.skinnedmodel.model.ModelMesh.MeshAssetParams saved = mesh.assetParams;
+        zombie.core.skinnedmodel.model.ModelMesh.MeshAssetParams params = new zombie.core.skinnedmodel.model.ModelMesh.MeshAssetParams();
+        params.isStatic = true;
+        params.postProcess = mesh.postProcess;
+        mesh.assetParams = params;
+        try {
+            Object scene = new zombie.core.skinnedmodel.model.FileTask_LoadMesh(mesh, zombie.GameWindow.fileSystem, null).call();
+            if (scene instanceof zombie.core.skinnedmodel.model.jassimp.ProcessedAiScene processed) {
+                zombie.core.physics.PhysicsShape shape = new zombie.core.physics.PhysicsShape(null, null, null);
+                processed.applyToPhysicsShape(shape);
+                if (!shape.meshes.isEmpty()) {
+                    points = shape.meshes.get(0).points;
+                }
+            }
+        } catch (Exception e) {
+            DebugType.General.warn("plzMeasureSights: cannot re-import " + key + ": " + e);
+        } finally {
+            mesh.assetParams = saved;
+        }
+
+        plzMeshPoints.put(key, points);
+        return points;
+    }
+
+    private void plzCollectPoints(UI3DScene.SceneModel sceneModel, Matrix4f toRoot, ArrayList<float[]> out) {
+        float[] points = plzPointsOf(sceneModel);
+        if (points == null) {
+            return;
+        }
+
+        Matrix4f m = allocMatrix4f().set(toRoot);
+        ModelInstanceRenderData.postMultiplyMeshTransform(m, sceneModel.model.mesh);
+        if (sceneModel.modelScript.scale != 1.0F) {
+            m.scale(sceneModel.modelScript.scale);
+        }
+
+        Vector3f v = allocVector3f();
+        for (int i = 0; i + 2 < points.length; i += 3) {
+            m.transformPosition(v.set(points[i], points[i + 1], points[i + 2]));
+            out.add(new float[]{v.x, v.y, v.z});
+        }
+
+        releaseVector3f(v);
+        releaseMatrix4f(m);
+    }
+
+    private KahluaTable plzMeasureSights(String id, float fwd, float up) {
+        UI3DScene.SceneModel root = this.getSceneObjectById(id, UI3DScene.SceneModel.class, true);
+        ArrayList<float[]> pts = new ArrayList<>();
+        Matrix4f identity = allocMatrix4f().identity();
+        this.plzCollectPoints(root, identity, pts);
+        for (int i = 0; i < this.objects.size(); i++) {
+            UI3DScene.SceneModel child = Type.tryCastTo(this.objects.get(i), UI3DScene.SceneModel.class);
+            if (child == null || child.parent != root || !child.visible) {
+                continue;
+            }
+
+            Matrix4f rel = allocMatrix4f().identity();
+            if (child.parentAttachment != null) {
+                root.getAttachmentTransform(child.parentAttachment, rel);
+            }
+
+            Matrix4f local = child.getLocalTransform(allocMatrix4f());
+            rel.mul(local);
+            this.plzCollectPoints(child, rel, pts);
+            releaseMatrix4f(local);
+            releaseMatrix4f(rel);
+        }
+
+        releaseMatrix4f(identity);
+        if (pts.isEmpty()) {
+            return null;
+        }
+
+        HashMap<Integer, Float> profile = new HashMap<>();
+        float ymin = Float.MAX_VALUE;
+        float ymax = -Float.MAX_VALUE;
+        for (float[] p : pts) {
+            float y = p[1] * fwd;
+            ymin = Math.min(ymin, y);
+            ymax = Math.max(ymax, y);
+            if (Math.abs(p[0]) > 0.012F) {
+                continue;
+            }
+
+            int bin = Math.round(y / 0.001F);
+            float h = p[2] * up;
+            Float cur = profile.get(bin);
+            if (cur == null || h > cur) {
+                profile.put(bin, h);
+            }
+        }
+
+        ArrayList<Integer> bins = new ArrayList<>(profile.keySet());
+        java.util.Collections.sort(bins);
+        ArrayList<float[]> hull = new ArrayList<>();
+        for (int b : bins) {
+            float[] p = new float[]{b * 0.001F, profile.get(b)};
+            while (hull.size() >= 2) {
+                float[] a = hull.get(hull.size() - 2);
+                float[] c = hull.get(hull.size() - 1);
+                if ((c[0] - a[0]) * (p[1] - a[1]) - (c[1] - a[1]) * (p[0] - a[0]) >= 0.0F) {
+                    hull.remove(hull.size() - 1);
+                } else {
+                    break;
+                }
+            }
+
+            hull.add(p);
+        }
+
+        float length = ymax - ymin;
+        float[] bestA = null;
+        float[] bestC = null;
+        for (int i = 0; i + 1 < hull.size(); i++) {
+            float[] a = hull.get(i);
+            float[] c = hull.get(i + 1);
+            if (c[0] - a[0] < length * 0.2F) {
+                continue;
+            }
+
+            if (a[0] < ymin + length * 0.15F && c[0] < ymin + length * 0.6F) {
+                continue;
+            }
+
+            if (bestA == null || c[0] - a[0] > bestC[0] - bestA[0]) {
+                bestA = a;
+                bestC = c;
+            }
+        }
+
+        if (bestA == null) {
+            return null;
+        }
+
+        KahluaTable t = LuaManager.platform.newTable();
+        t.rawset("rearY", (double)bestA[0]);
+        t.rawset("rearH", (double)bestA[1]);
+        t.rawset("frontY", (double)bestC[0]);
+        t.rawset("frontH", (double)bestC[1]);
+        t.rawset("slope", Math.toDegrees(Math.atan2(bestC[1] - bestA[1], bestC[0] - bestA[0])));
+        t.rawset("ymin", (double)ymin);
+        t.rawset("ymax", (double)ymax);
+        t.rawset("points", (double)pts.size());
+        return t;
+    }
+
+    private UI3DScene.SceneModel plzAddModel(String id, String modelName) {
+        ModelScript modelScript = ScriptManager.instance.getModelScript(modelName);
+        if (modelScript == null) {
+            return null;
+        }
+
+        Model model = ModelManager.instance.getLoadedModel(modelName);
+        if (model == null) {
+            return null;
+        }
+
+        UI3DScene.SceneModel sceneModel = new UI3DScene.SceneModel(this, id, modelScript, model);
+        this.objects.add(sceneModel);
+        return sceneModel;
+    }
+
+    private KahluaTable plzCreateWeaponModel(String id, HandWeapon weapon) {
+        if (this.getSceneObjectById(id, false) != null) {
+            throw new IllegalStateException("scene object \"" + id + "\" exists");
+        }
+
+        String modelName = StringUtils.discardNullOrWhitespace(weapon.getStaticModel());
+        UI3DScene.SceneModel root = modelName == null ? null : this.plzAddModel(id, modelName);
+        if (root == null) {
+            return null;
+        }
+
+        KahluaTable result = LuaManager.platform.newTable();
+        KahluaTable parts = LuaManager.platform.newTable();
+        result.rawset("model", modelName);
+        result.rawset("parts", parts);
+        ArrayList<ModelWeaponPart> modelWeaponParts = weapon.getModelWeaponPart();
+        if (modelWeaponParts == null) {
+            return result;
+        }
+
+        java.util.List<WeaponPart> fitted = weapon.getAllWeaponParts();
+        int n = 0;
+        for (int i = 0; i < fitted.size(); i++) {
+            WeaponPart part = fitted.get(i);
+            for (int j = 0; j < modelWeaponParts.size(); j++) {
+                ModelWeaponPart mwp = modelWeaponParts.get(j);
+                if (!part.getFullType().equals(mwp.partType)) {
+                    continue;
+                }
+
+                String partModel = StringUtils.discardNullOrWhitespace(mwp.modelName);
+                String partId = id + "#" + (n + 1);
+                UI3DScene.SceneModel child = partModel == null ? null : this.plzAddModel(partId, partModel);
+                if (child != null) {
+                    child.attachment = mwp.attachmentNameSelf;
+                    child.parent = root;
+                    child.parentAttachment = mwp.attachmentParent;
+                    KahluaTable entry = LuaManager.platform.newTable();
+                    entry.rawset("id", partId);
+                    entry.rawset("partType", mwp.partType);
+                    entry.rawset("model", partModel);
+                    entry.rawset("self", mwp.attachmentNameSelf);
+                    entry.rawset("parent", mwp.attachmentParent);
+                    n++;
+                    parts.rawset(n, entry);
+                }
+                break;
+            }
+        }
+
+        return result;
+    }
+
     private void calcMatrices(Matrix4f projection, Matrix4f modelView) {
+        if (this.plzPerspective) {
+            float aspect = (float)this.screenWidth() / Math.max(1.0F, (float)this.screenHeight());
+            projection.setPerspective(this.plzFov * (float) (Math.PI / 180.0), aspect, this.plzNear, this.plzFar);
+            modelView.identity();
+            return;
+        }
+
         float w = this.screenWidth();
         float scale = 1366.0F / w;
         float h = this.screenHeight() * scale;
@@ -2998,6 +3922,9 @@ public final class UI3DScene extends UIElement {
             this.renderData = renderData;
             this.rendered = false;
             this.character.animatedModel.renderMain();
+            if (this.character.plzArmsRoot != null) {
+                UI3DScene.plzArmsOnly(this.character.animatedModel, this.character.plzArmsRoot);
+            }
         }
 
         @Override
@@ -4817,6 +5744,13 @@ public final class UI3DScene extends UIElement {
         boolean showBip01;
         boolean clearDepthBuffer = true;
         boolean useDeferredMovement;
+        String plzArmsRoot;
+        zombie.characters.IsoGameCharacter plzPoseSource;
+        float plzPoseWeight;
+        final Vector3f plzLook = new Vector3f();
+        final Vector3f plzLookAnchor = new Vector3f();
+        boolean plzFollowing;
+        Matrix4f plzAimHeld;
 
         SceneCharacter(UI3DScene scene, String id) {
             super(scene, id);
@@ -4828,6 +5762,10 @@ public final class UI3DScene extends UIElement {
         @Override
         UI3DScene.SceneObjectRenderData renderMain() {
             this.animatedModel.update();
+            if (this.plzPoseSource != null) {
+                UI3DScene.plzCopyPose(this.plzPoseSource.getAnimationPlayer(), this.animatedModel.getAnimationPlayer(), this.plzPoseWeight);
+            }
+
             UI3DScene.CharacterRenderData renderData = UI3DScene.CharacterRenderData.s_pool.alloc();
             renderData.initCharacter(this);
             SpriteRenderer.instance.drawGeneric(renderData.drawer);
@@ -4836,6 +5774,10 @@ public final class UI3DScene extends UIElement {
 
         @Override
         Matrix4f getLocalTransform(Matrix4f transform) {
+            if (this.plzTransform != null) {
+                return transform.set(this.plzTransform);
+            }
+
             transform.identity();
             transform.translate(this.translate.x, this.translate.y, this.translate.z);
             float rotateY = this.rotate.y;
@@ -5605,6 +6547,7 @@ public final class UI3DScene extends UIElement {
         boolean autoRotate;
         float autoRotateAngle;
         UI3DScene.ParentVehiclePart parentVehiclePart;
+        Matrix4f plzTransform;
 
         SceneObject(UI3DScene scene, String id) {
             this.scene = scene;
@@ -5631,6 +6574,10 @@ public final class UI3DScene extends UIElement {
         abstract UI3DScene.SceneObjectRenderData renderMain();
 
         Matrix4f getLocalTransform(Matrix4f transform) {
+            if (this.plzTransform != null) {
+                return transform.set(this.plzTransform);
+            }
+
             transform.identity();
             UI3DScene.SceneModel sceneModel = Type.tryCastTo(this, UI3DScene.SceneModel.class);
             boolean bInvertX = sceneModel != null && sceneModel.spriteModelEditor;

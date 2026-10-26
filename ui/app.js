@@ -532,6 +532,8 @@ function paintDrawer(st, s) {
     // an admin could have renamed and no second route to offer.
     $("btn-change-username").disabled = !st.accountConfirmed;
 
+    paintStaging(st);
+
     const ovBanner = $("server-override-banner");
     ovBanner.hidden = !st.serverOverridden;
     if (st.serverOverridden) {
@@ -683,6 +685,36 @@ async function refreshServer() {
     if (state.status) paintDrawer(state.status, state.server);
 }
 
+function paintStaging(st) {
+    const sg = st.staging;
+    $("staging-section").hidden = !sg;
+    if (!sg) return;
+    const s = state.staging;
+    defList($("d-staging"), [
+        ["Address", sg.host + ":" + sg.connectPort],
+        [
+            "Status",
+            s === undefined
+                ? "Checking"
+                : s
+                ? "Online, " + s.players + " of " + s.maxPlayers + " players"
+                : "Not answering",
+            s ? "ok" : s === undefined ? "" : "warn",
+        ],
+    ]);
+    $("btn-play-staging").disabled = $("play").disabled;
+}
+
+async function refreshStaging() {
+    if (!state.status || !state.status.staging) return;
+    try {
+        state.staging = await invoke("staging_status");
+    } catch {
+        state.staging = null;
+    }
+    paintStaging(state.status);
+}
+
 async function refreshCommunity() {
     const [report, news, links] = await Promise.allSettled([
         invoke("mods_report"),
@@ -744,7 +776,7 @@ function setDrawer(open) {
         d.hidden = false;
         b.hidden = false;
         refreshSteamAccounts();
-        refreshStatus();
+        refreshStatus().then(refreshStaging);
         requestAnimationFrame(() => {
             d.classList.add("in");
             b.classList.add("in");
@@ -766,11 +798,20 @@ document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") setDrawer(false);
 });
 
-$("play").addEventListener("click", async () => {
+$("play").addEventListener("click", () => runPlay(false));
+
+$("btn-play-staging").addEventListener("click", () => {
+    setDrawer(false);
+    runPlay(true);
+});
+
+async function runPlay(staging) {
     state.joinError = null;
     enterWorking();
+    $("btn-play-staging").disabled = true;
+    if (staging) log("play", "joining the staging server");
     try {
-        const r = await invoke("play");
+        const r = await invoke("play", { staging });
         for (const n of r.notes) log("note", n);
         if (r.boundUsername) {
             log("account", "the server knows this Steam account as " + r.boundUsername);
@@ -795,7 +836,7 @@ $("play").addEventListener("click", async () => {
         exitWorking();
         await refreshStatus();
     }
-});
+}
 
 $("btn-edit-name").addEventListener("click", () => startEditingName("choose"));
 

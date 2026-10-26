@@ -38,6 +38,7 @@ public final class PLZFixes {
     public static final String ACTION_STATE_CONTAINER = "actionStateContainer";
     public static final String ADVANCED_ANIMATOR_FOLDERS = "advancedAnimatorFolders";
     public static final String ANIMAL_AWAY_CLAMP = "animalAwayClamp";
+    public static final String ANIMAL_CATCH_UP = "animalCatchUp";
     public static final String ANIMAL_CLIMB_STAIRS_GUARD = "animalClimbStairsGuard";
     public static final String ANIMAL_REATTACH = "animalReattach";
     public static final String ANIMAL_REGISTRY = "animalRegistry";
@@ -88,7 +89,11 @@ public final class PLZFixes {
     public static final String VOICE_ROUTING_SLACK = "voiceRoutingSlack";
     public static final String VOICE_CROWD_SLACK = "voiceCrowdSlack";
     public static final String VOICE_IDLE_CHANNEL = "voiceIdleChannel";
+    public static final String VEHICLE_FULL_BUDGET = "vehicleFullBudget";
+    public static final String VEHICLE_FULL_DEDUPE = "vehicleFullDedupe";
     public static final String VEHICLE_GHOST_REPORT = "vehicleGhostReport";
+    public static final String VEHICLE_LEAN_FULL = "vehicleLeanFull";
+    public static final String VEHICLE_PHYSICS_FAST_LANE = "vehiclePhysicsFastLane";
     public static final String VEHICLE_PHANTOM_REMOVE = "vehiclePhantomRemove";
     public static final String VEHICLE_REMOVE_KEEP_OCCUPIED = "vehicleRemoveKeepOccupied";
     public static final String VEHICLE_SAVE_ANIMALS = "vehicleSaveAnimals";

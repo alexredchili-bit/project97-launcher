@@ -1,6 +1,35 @@
 ﻿{
     "releases":  [
                      {
+                         "date":  "2026-10-20T05:17:10Z",
+                         "workshopVersion":  "1.6.0",
+                         "payloadBuild":  77,
+                         "serverTag":  77,
+                         "workshopItem":  [
+                                              "3817404376"
+                                          ],
+                         "workshopUpdated":  1792471132,
+                         "builtAgainstJar":  "e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33",
+                         "provenance":  {
+                                            "repo":  "alexredchili-bit/project97-launcher",
+                                            "commit":  "4299cb40ffe2c1d41aa435f1634034eb99c7a106",
+                                            "workflow":  ".github/workflows/payload.yml",
+                                            "run":  "https://github.com/alexredchili-bit/project97-launcher/actions/runs/39370506944/attempts/1",
+                                            "release":  "payload-build-77",
+                                            "sums":  "07d148781d0471d87912d6f862e4b26a692464e4f528d7c8036e6d5541c771a1"
+                                        },
+                         "clientFiles":  517,
+                         "serverFiles":  366,
+                         "launcher":  {
+                                          "sha":  "1443bb6",
+                                          "dirty":  4
+                                      },
+                         "mods":  {
+                                      "sha":  "15c283c3",
+                                      "dirty":  3
+                                  }
+                     },
+                     {
                          "date":  "2026-10-18T05:25:23Z",
                          "workshopVersion":  "1.5.3",
                          "payloadBuild":  76,

@@ -49,6 +49,8 @@ pub struct Manifest {
     #[serde(rename = "classReleaseTarget")]
     pub class_release_target: u32,
     pub server: ServerInfo,
+    #[serde(default)]
+    pub staging: Option<ServerInfo>,
     #[serde(rename = "requiredServerBuild")]
     pub required_server_build: u64,
     pub files: Vec<PayloadFile>,

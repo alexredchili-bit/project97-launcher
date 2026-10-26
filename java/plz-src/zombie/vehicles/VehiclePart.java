@@ -583,7 +583,11 @@ public final class VehiclePart extends GameEntity implements ChatElementOwner, W
             output.put((byte)0);
         } else {
             output.put((byte)1);
-            this.getItemContainer().save(output);
+            if (zombie.plz.PLZVehicleNet.leanWriting()) {
+                this.getItemContainer().plzSaveLean(output);
+            } else {
+                this.getItemContainer().save(output);
+            }
         }
 
         if (this.hasModData() && !this.getModData().isEmpty()) {

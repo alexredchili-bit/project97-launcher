@@ -1135,8 +1135,11 @@ public class IsoHutch extends IsoObject {
         super.removeFromWorld();
         HutchManager.getInstance().remove(this);
 
+        // PLZ: the client's animal sync leaves null perches, and one throws out of IngameState on chunk unload.
         for (IsoAnimal animal : this.animalInside.values()) {
-            animal.removeFromUpdateLists();
+            if (animal != null) {
+                animal.removeFromUpdateLists();
+            }
         }
     }
 

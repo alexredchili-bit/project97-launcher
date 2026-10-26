@@ -160,6 +160,7 @@ public final class PLZPayloadIndex {
         "zombie.plz.PLZVariableSync",
         "zombie.plz.PLZVehicleAccess",
         "zombie.plz.PLZVehicleDamageWatch",
+        "zombie.plz.PLZVehicleNet",
         "zombie.plz.PLZVehicleWatch",
         "zombie.plz.PLZVoice",
         "zombie.plz.PLZVoiceChanger",
