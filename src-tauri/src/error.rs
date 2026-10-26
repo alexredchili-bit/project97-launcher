@@ -132,7 +132,17 @@ impl From<serde_json::Error> for Error {
 
 impl From<reqwest::Error> for Error {
     fn from(e: reqwest::Error) -> Self {
-        Error::Other(format!("network: {e}"))
+        let mut msg = format!("network: {e}");
+        let mut source = std::error::Error::source(&e);
+        while let Some(cause) = source {
+            let text = cause.to_string();
+            if !msg.contains(&text) {
+                msg.push_str(": ");
+                msg.push_str(&text);
+            }
+            source = cause.source();
+        }
+        Error::Other(msg)
     }
 }
 
@@ -155,3 +165,26 @@ impl Serialize for Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+#[cfg(test)]
+mod tests {
+    use super::Error;
+
+    #[test]
+    fn a_network_failure_names_its_cause() {
+        let port = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let err = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(reqwest::get(format!("http://127.0.0.1:{port}/manifest.json")))
+            .unwrap_err();
+        let msg = Error::from(err).to_string();
+        assert!(msg.starts_with("network: error sending request"), "{msg}");
+        assert!(msg.contains("tcp connect error"), "{msg}");
+    }
+}

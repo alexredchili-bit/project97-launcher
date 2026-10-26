@@ -2,7 +2,7 @@
   "$schema": "./gen/schemas/desktop-schema.json",
   "productName": "Project 97 Launcher",
   "mainBinaryName": "project97-launcher",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "identifier": "life.project97.launcher",
   "build": {
     "frontendDist": "../ui"
