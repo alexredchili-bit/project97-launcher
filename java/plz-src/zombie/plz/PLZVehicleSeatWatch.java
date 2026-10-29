@@ -2,7 +2,11 @@ package zombie.plz;
 
 import zombie.Lua.LuaEventManager;
 import zombie.characters.IsoPlayer;
+import zombie.core.raknet.UdpConnection;
+import zombie.debug.DebugLog;
 import zombie.network.GameServer;
+import zombie.network.PacketTypes;
+import zombie.network.packets.INetworkPacket;
 import zombie.vehicles.BaseVehicle;
 
 /**
@@ -62,6 +66,33 @@ public final class PLZVehicleSeatWatch {
      * @param player  who boarded it
      * @param seat    the seat index; {@link #DRIVER_SEAT} for the driver
      */
+    /** The server refused a boarding its client already applied: put them back outside on their own screen. */
+    public static void refusedEnter(UdpConnection connection, BaseVehicle vehicle, IsoPlayer player, int seat) {
+        if (!GameServer.server || connection == null || vehicle == null || player == null) {
+            return;
+        }
+
+        PLZFixes.hit(PLZFixes.VEHICLE_SEAT_REFUSAL_SYNC);
+        DebugLog.log("PLZVehicleSeat: refused " + player.getUsername() + " seat " + seat + " vehicle " + vehicle.getId());
+        INetworkPacket.send(connection, PacketTypes.PacketType.VehicleExit, vehicle, player, seat);
+    }
+
+    /** The server refused a seat switch its client already applied: move them back to the seat the server has. */
+    public static void refusedSwitch(UdpConnection connection, BaseVehicle vehicle, IsoPlayer player, int seatTo) {
+        if (!GameServer.server || connection == null || vehicle == null || player == null) {
+            return;
+        }
+
+        PLZFixes.hit(PLZFixes.VEHICLE_SEAT_REFUSAL_SYNC);
+        int actual = vehicle.getSeat(player);
+        DebugLog.log("PLZVehicleSeat: refused " + player.getUsername() + " switch to seat " + seatTo + " vehicle " + vehicle.getId() + ", kept seat " + actual);
+        if (actual >= 0) {
+            INetworkPacket.send(connection, PacketTypes.PacketType.VehicleSwitchSeat, vehicle, player, seatTo, actual);
+        } else {
+            INetworkPacket.send(connection, PacketTypes.PacketType.VehicleExit, vehicle, player, seatTo);
+        }
+    }
+
     public static void onSeated(BaseVehicle vehicle, IsoPlayer player, int seat) {
         if (!GameServer.server || vehicle == null || player == null) {
             return;

@@ -956,6 +956,24 @@ public class GameServer {
                             }
 
                             droppedPackets += 2;
+                            if (zombie.plz.PLZFixes.on(zombie.plz.PLZFixes.VEHICLE_PHYSICS_COALESCE)) {
+                                boolean[] stale = zombie.plz.PLZPhysicsCoalesce.stale(MainLoopNetData2, n);
+                                for (int i = n; i < MainLoopNetData2.size(); i++) {
+                                    ZomboidNetData latest = (ZomboidNetData)MainLoopNetData2.get(i);
+                                    if (stale[i - n]) {
+                                        countOfDroppedPackets++;
+                                        ZomboidNetDataPool.instance.discard(latest);
+                                    } else {
+                                        try (AbstractPerformanceProfileProbe probe = zombie.network.GameServer.s_performance.mainLoopDealWithNetData.profile()) {
+                                            mainLoopDealWithNetData(latest);
+                                        }
+                                    }
+                                }
+
+                                zombie.plz.PLZFixes.hit(zombie.plz.PLZFixes.VEHICLE_PHYSICS_COALESCE);
+                                break;
+                            }
+
                             countOfDroppedPackets = countOfDroppedPackets + (MainLoopNetData2.size() - n);
                             break;
                         }

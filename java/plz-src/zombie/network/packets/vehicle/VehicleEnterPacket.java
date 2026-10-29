@@ -70,6 +70,12 @@ public class VehicleEnterPacket implements INetworkPacket {
     @Override
     public void processServer(PacketTypes.PacketType packetType, UdpConnection connection) {
         this.vehicleId.getVehicle().enter(this.seatTo, this.playerId.getPlayer());
+        if (this.vehicleId.getVehicle().getSeat(this.playerId.getPlayer()) != this.seatTo
+            && zombie.plz.PLZFixes.on(zombie.plz.PLZFixes.VEHICLE_SEAT_REFUSAL_SYNC)) {
+            PLZVehicleSeatWatch.refusedEnter(connection, this.vehicleId.getVehicle(), this.playerId.getPlayer(), this.seatTo);
+            return;
+        }
+
         if (this.seatTo == 0 && this.vehicleId.getVehicle().isNetPlayerAuthorization(BaseVehicle.Authorization.Server)) {
             this.vehicleId.getVehicle().authorizationServerOnSeat(this.playerId.getPlayer(), true);
         }

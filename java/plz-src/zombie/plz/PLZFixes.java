@@ -95,10 +95,12 @@ public final class PLZFixes {
     public static final String VEHICLE_GHOST_REPORT = "vehicleGhostReport";
     public static final String VEHICLE_LEAN_FULL = "vehicleLeanFull";
     public static final String VEHICLE_PHYSICS_ASK_LOADED = "vehiclePhysicsAskLoaded";
+    public static final String VEHICLE_PHYSICS_COALESCE = "vehiclePhysicsCoalesce";
     public static final String VEHICLE_PHYSICS_FAST_LANE = "vehiclePhysicsFastLane";
     public static final String VEHICLE_PHANTOM_REMOVE = "vehiclePhantomRemove";
     public static final String VEHICLE_REMOVE_KEEP_OCCUPIED = "vehicleRemoveKeepOccupied";
     public static final String VEHICLE_SAVE_ANIMALS = "vehicleSaveAnimals";
+    public static final String VEHICLE_SEAT_REFUSAL_SYNC = "vehicleSeatRefusalSync";
     public static final String VEHICLE_SOUNDS_CLIENT = "vehicleSoundsClient";
     public static final String WORLD_ITEM_SPRITE_GUARD = "worldItemSpriteGuard";
     public static final String WORLD_MAP_ALL_KNOWN = "worldMapAllKnown";
