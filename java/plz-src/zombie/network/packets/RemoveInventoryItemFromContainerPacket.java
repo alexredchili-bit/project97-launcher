@@ -97,7 +97,7 @@ public class RemoveInventoryItemFromContainerPacket implements INetworkPacket {
 
     @Override
     public void processServer(PacketTypes.PacketType packetType, UdpConnection connection) {
-        // PLZ: THE ONE PLACE THE BOOT RULE IS ACTUALLY ENFORCED. The Lua gate on
+        // PLZ: ONE OF THE TWO PLACES THE BOOT RULE IS ENFORCED, beside ItemTransactionPacket. The Lua gate on
         // Vehicles.ContainerAccess hangs off BaseVehicle.canAccessContainer,
         // whose every caller in the game is client UI or a client-run timed
         // action - so on its own it greys a menu and stops nobody who edited

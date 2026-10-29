@@ -79,6 +79,7 @@ public final class PLZFixes {
     public static final String SERVER_MAP_RELEVANCE_STAMP = "serverMapRelevanceStamp";
     public static final String SOUND_LOOP_PRIORITY = "soundLoopPriority";
     public static final String SOUND_MUSIC_PRIORITY = "soundMusicPriority";
+    public static final String SOUND_MUSIC_STREAM = "soundMusicStream";
     public static final String SPRITE_CONFIG_IDEMPOTENT = "spriteConfigIdempotent";
     public static final String SPRITE_TRANSMIT_GUARD = "spriteTransmitGuard";
     public static final String TRANSACTION_CANCEL = "transactionCancel";
@@ -93,6 +94,7 @@ public final class PLZFixes {
     public static final String VEHICLE_FULL_DEDUPE = "vehicleFullDedupe";
     public static final String VEHICLE_GHOST_REPORT = "vehicleGhostReport";
     public static final String VEHICLE_LEAN_FULL = "vehicleLeanFull";
+    public static final String VEHICLE_PHYSICS_ASK_LOADED = "vehiclePhysicsAskLoaded";
     public static final String VEHICLE_PHYSICS_FAST_LANE = "vehiclePhysicsFastLane";
     public static final String VEHICLE_PHANTOM_REMOVE = "vehiclePhantomRemove";
     public static final String VEHICLE_REMOVE_KEEP_OCCUPIED = "vehicleRemoveKeepOccupied";

@@ -110,7 +110,7 @@ public final class PLZSoundPriority {
         }
     }
 
-    private static boolean isMusic(GameSound sound) {
+    static boolean isMusic(GameSound sound) {
         if (sound.master == GameSound.MasterVolume.Music) {
             return true;
         }

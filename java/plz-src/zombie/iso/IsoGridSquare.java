@@ -176,6 +176,7 @@ import zombie.chat.ChatManager;
 import zombie.network.chat.ChatServer;
 import zombie.plz.PLZChannelProbe;
 import zombie.plz.PLZSoundProbe;
+import zombie.plz.PLZMusicStream;
 import zombie.plz.PLZSoundPriority;
 import zombie.plz.PLZTextureRepair;
 import zombie.plz.PLZBarrierGrid;
@@ -7718,6 +7719,22 @@ public final class IsoGridSquare {
 
     public static String plzSoundPriorityFailure() {
         return PLZSoundPriority.getFailure();
+    }
+
+    public static int plzMusicStreamsOpen() {
+        return PLZMusicStream.getOpen();
+    }
+
+    public static int plzMusicStreamsOpened() {
+        return PLZMusicStream.getOpened();
+    }
+
+    public static int plzMusicStreamsFailed() {
+        return PLZMusicStream.getFailed();
+    }
+
+    public static int plzMusicStreamsOrphaned() {
+        return PLZMusicStream.getOrphansReleased();
     }
 
     public static int plzNullTextureCount() {

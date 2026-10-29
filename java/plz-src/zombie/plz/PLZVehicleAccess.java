@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.Map;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
+import zombie.inventory.ItemContainer;
 import zombie.vehicles.BaseVehicle;
 import zombie.vehicles.VehiclePart;
 
@@ -41,9 +42,9 @@ public final class PLZVehicleAccess {
     // mechanic on shift, all of whom may move any car out of the way. Reading
     // it here would hand a rival department's officer, and any mechanic on
     // shift, the inside of a patrol car's boot - which is exactly what the Lua
-    // VehicleAccessCore.mayAccessContainer refuses. So the container question
-    // reads `granted` (the real crew list) plus `staff` alone, and it only
-    // narrows the answer for a lock that is in `fleetKeys`.
+    // VehicleAccessCore.mayAccessContainer refuses. So for a lock in `fleetKeys`
+    // the container question reads `granted` (the real crew list) plus `staff`
+    // alone; any other claimed lock answers to has(), overrides included.
     //
     // EVERYTHING HERE FAILS OPEN. An empty projection, an unknown lock or an
     // unclaimed one all answer true, because the alternative failure - every
@@ -263,40 +264,17 @@ public final class PLZVehicleAccess {
         return keys != null && keys.contains(keyId);
     }
 
-    // MAY THIS PLAYER OPEN THIS VEHICLE'S BOOT, GLOVEBOX OR SEAT BOXES. The
-    // server-side twin of Lua's VehicleAccessCore.mayAccessContainer, and the
-    // only one of the two that a modified client cannot talk its way past:
-    // BaseVehicle.canAccessContainer, which the Lua gate hangs off, is called
-    // from client UI and client-run timed actions only, so on its own it is a
-    // greyed menu rather than a rule.
-    // DELIBERATELY SCOPED TO A DEPARTMENT'S POOL CAR, and the vehicles it does
-    // NOT cover are the point of the scoping.
-    //
-    // An ordinary owned car's boot is left exactly as it was: refused in the
-    // Lua gate, which greys the menu, and not refused here. That is not because
-    // stealing from a player's boot is acceptable - it is because this is the
-    // first server-side refusal this feature has ever had, and the claim
-    // registry it would read is the same cache that shipped 1.0.17 with no
-    // migration and left most of the map's cars claimed by nobody. Applying a
-    // hard refusal on top of a projection with that history would turn every
-    // gap in it into a player unable to open their own boot, which is a far
-    // worse failure than the one being fixed.
-    //
-    // A fleet lock has none of that history: it is DERIVED from the bay id by
-    // fleetKeyId rather than stored, so it cannot be lost, and the crew list is
-    // rebuilt from the roster on every projection. Widening this to every
-    // claimed vehicle is a separate change that needs the registry audited
-    // first.
+    // Reads the same projection the client's Lua gate does, so it never refuses what the menu offered.
     public static boolean mayOpenContainer(String username, int keyId) {
-        if (!enabled) {
+        if (!enabled || !isClaimed(keyId)) {
             return true;
         }
 
-        if (!isFleet(keyId) || !isClaimed(keyId)) {
-            return true;
+        if (isFleet(keyId)) {
+            return isStaff(username) || grantedHas(username, keyId);
         }
 
-        return isStaff(username) || grantedHas(username, keyId);
+        return has(username, keyId);
     }
 
     // The packet-side entry point, taking the vehicle part the container hangs
@@ -313,6 +291,19 @@ public final class PLZVehicleAccess {
         }
 
         return mayOpenContainer(username, vehicle.getKeyId());
+    }
+
+    // Both ends, because filling a stranger's boot is refused by the Lua gate as well.
+    public static boolean mayTransferBetween(ItemContainer source, ItemContainer destination, String username) {
+        return mayTouchContainer(source, username) && mayTouchContainer(destination, username);
+    }
+
+    private static boolean mayTouchContainer(ItemContainer container, String username) {
+        if (!enabled || container == null) {
+            return true;
+        }
+
+        return mayLootVehiclePart(container.getOutermostContainer().getVehiclePart(), username);
     }
 
     public static int getFleetCount() {

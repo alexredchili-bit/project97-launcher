@@ -22,7 +22,7 @@ import zombie.vehicles.VehiclePart;
 
 /** Server-side vehicle traffic shaping per connection. See java-patch/README.md, "PLZVehicleNet". */
 public final class PLZVehicleNet {
-    static final long HOLD_MS = 20000L;
+    static final long HOLD_MS = 2500L;
     static final long KNOWN_MS = 3000L;
     static final long FORGET_MS = 30000L;
     static final long SERVE_GAP_MS = 2000L;

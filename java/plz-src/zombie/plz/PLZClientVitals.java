@@ -25,6 +25,7 @@ public final class PLZClientVitals {
         "gcCycles", "gcMajorCycles", "gcPauses", "gcPauseMs", "gcCycleMs",
         "processCommitMB", "ramTotalMB", "ramFreeMB", "swapTotalMB", "swapFreeMB",
         "cpuProcessPct", "cpuSystemPct", "threads", "uptimeS", "textureMB", "textureIds",
+        "musicStreams", "musicStreamsOpened",
     };
     private static final double MB = 1024.0 * 1024.0;
     private static final int TAIL_BYTES = 256 * 1024;
@@ -220,6 +221,8 @@ public final class PLZClientVitals {
             set("uptimeS", ManagementFactory.getRuntimeMXBean().getUptime() / 1000.0);
             set("textureMB", TextureID.totalMemUsed / MB);
             set("textureIds", Texture.totalTextureID);
+            set("musicStreams", PLZMusicStream.getOpen());
+            set("musicStreamsOpened", PLZMusicStream.getOpened());
             published = values.clone();
         } catch (Throwable t) {
             available = false;

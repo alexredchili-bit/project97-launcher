@@ -148,6 +148,18 @@ public class ItemTransactionPacket extends Transaction implements INetworkPacket
             }
         }
 
+        if (consistent == 0 && this.state == Transaction.TransactionState.Request) {
+            for (Transaction.TransactionEntry entry : this.entries) {
+                // PLZ: the vehicle boot rule; this is the packet every inventory transfer moves through.
+                if (!zombie.plz.PLZVehicleAccess.mayTransferBetween(
+                    entry.sourceId.getContainer(), entry.destinationId.getContainer(), connection.getUserName()
+                )) {
+                    consistent = 1;
+                    break;
+                }
+            }
+        }
+
         if (this.state == Transaction.TransactionState.Request) {
             if (consistent == 0) {
                 this.setTimeData();

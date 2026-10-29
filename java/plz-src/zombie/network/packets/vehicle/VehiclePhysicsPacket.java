@@ -8,6 +8,7 @@ import zombie.core.network.ByteBufferWriter;
 import zombie.core.physics.Bullet;
 import zombie.core.physics.WorldSimulation;
 import zombie.core.raknet.UdpConnection;
+import zombie.iso.IsoWorld;
 import zombie.network.GameClient;
 import zombie.network.GameServer;
 import zombie.network.IConnection;
@@ -138,7 +139,8 @@ public class VehiclePhysicsPacket extends VehicleInterpolationData implements IN
             if (!this.vehicleId.getVehicle().hasAuthorization(connection)) {
                 this.vehicleId.getVehicle().interpolation.interpolationDataAdd(this.vehicleId.getVehicle(), this, GameTime.getServerTimeMills());
             }
-        } else {
+        } else if (!zombie.plz.PLZFixes.on(zombie.plz.PLZFixes.VEHICLE_PHYSICS_ASK_LOADED)
+            || IsoWorld.instance.currentCell.getGridSquare(this.x, this.y, 0.0) != null) {
             VehicleManager.instance.sendVehicleRequest(this.vehicleId.getID(), (short)1);
         }
     }

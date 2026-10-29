@@ -6,6 +6,7 @@ public final class PLZPayloadIndex {
     }
 
     public static final String[] CLIENT = {
+        "fmod.fmod.FMODSoundEmitter",
         "org.lwjglx.input.Controllers",
         "se.krka.kahlua.j2se.J2SEPlatform",
         "zombie.MapCollisionData",
@@ -85,6 +86,7 @@ public final class PLZPayloadIndex {
         "zombie.network.packets.SyncClothingPacket",
         "zombie.network.packets.connection.LoginPacket",
         "zombie.network.packets.service.ChecksumPacket",
+        "zombie.network.packets.vehicle.VehiclePhysicsPacket",
         "zombie.network.packets.vehicle.VehicleRemovePacket",
         "zombie.plz.PLZAfkKick",
         "zombie.plz.PLZAnimalCalm",
@@ -130,6 +132,7 @@ public final class PLZPayloadIndex {
         "zombie.plz.PLZMapScan",
         "zombie.plz.PLZModFolderBaseline",
         "zombie.plz.PLZMuscleStrain",
+        "zombie.plz.PLZMusicStream",
         "zombie.plz.PLZObjectDamage",
         "zombie.plz.PLZObjectUpdate",
         "zombie.plz.PLZOggLength",
@@ -160,6 +163,7 @@ public final class PLZPayloadIndex {
         "zombie.plz.PLZVariableSync",
         "zombie.plz.PLZVehicleAccess",
         "zombie.plz.PLZVehicleDamageWatch",
+        "zombie.plz.PLZVehicleGhost",
         "zombie.plz.PLZVehicleNet",
         "zombie.plz.PLZVehicleWatch",
         "zombie.plz.PLZVoice",
