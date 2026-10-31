@@ -195,7 +195,8 @@ public final class PLZSoundGain {
             // resolve sweep there ran while scripts were still loading and pinned 2212 of
             // Lifestyle's 2213 sounds to "nobody". The gain then applied to one sound and the
             // slider looked dead while being wired perfectly.
-            if (slot != NEUTRAL || firstClipFile(sound) == null) {
+            String file = firstClipFile(sound);
+            if (slot != NEUTRAL || file == null || PLZUploadSound.isMarker(file)) {
                 SLOT_BY_SOUND.put(sound, slot);
             }
         }

@@ -472,6 +472,10 @@ public class VideoTexture extends Texture {
         return path != null && new File(path).isFile();
     }
 
+    public static boolean plzUploadRegister(String sha, double durationMs, boolean revoked) {
+        return zombie.plz.PLZUploadSound.register(sha, durationMs, revoked);
+    }
+
     public static double cinemaAudioLengthMs(String slot) {
         AudioSlot s = audioSlots.get(slot);
         return s == null ? -1.0 : (double)javafmod.FMOD_Sound_GetLength(s.sound, 1L);

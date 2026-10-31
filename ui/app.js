@@ -273,7 +273,7 @@ function paintIdentity(st) {
     }
 
     // Once the name is locked in, the front page offers no route to a second character. That
-    // lives in the Details drawer instead, so staff point the people who have a slot at it
+    // lives in Settings instead, so staff point the people who have a slot at it
     // rather than every player finding it here and asking why the server turned them away.
     $("btn-edit-name").hidden = st.accountConfirmed;
     $("btn-edit-name").textContent = name ? "Change" : "Choose";
@@ -384,7 +384,7 @@ function paintNotice(st) {
     el.className = "notice" + (bad ? " bad" : "");
     el.innerHTML = bad ? ICON.cross : ICON.alert;
     const span = document.createElement("span");
-    span.textContent = problems[0] + (problems.length > 1 ? `  (+${problems.length - 1} more in Details)` : "");
+    span.textContent = problems[0] + (problems.length > 1 ? `  (+${problems.length - 1} more in Settings)` : "");
     el.append(span);
 }
 
@@ -431,8 +431,9 @@ function paintInstall(st) {
     $("install-hint").textContent = !st.installDir
         ? "Project Zomboid was not found. Pick the folder Steam installed it into."
         : st.installDirManual
-            ? "Set by hand. The launcher uses this folder instead of searching Steam."
-            : "Found automatically. Only change this if the launcher is looking in the wrong place.";
+            ? "Set by hand, so the launcher uses it instead of searching Steam."
+            : "Found automatically.";
+    $("install-hint").classList.toggle("bad", !st.installDir);
     $("btn-install-clear").hidden = !st.installDirManual;
     $("btn-locate").hidden = !!st.installDir || state.playing;
 }
@@ -472,65 +473,159 @@ async function browseForInstall() {
     await applyInstallDir(picked);
 }
 
-function paintDrawer(st, s) {
-    defList($("d-patch"), [
-        ["Build", st.build != null ? String(st.build) : "—"],
-        [
-            "Payload",
-            st.patchState === "ready"
-                ? "Installed"
-                : st.patchState === "pending"
-                    ? "Downloads on first Play"
-                    : st.patchDetail || "Unavailable",
-            { ready: "ok", pending: "" }[st.patchState] ?? "bad",
-        ],
+const tips = (() => {
+    let open = null;
+    let hideTimer = 0;
+    let count = 0;
+
+    function place(btn, tip) {
+        const gap = 8;
+        const edge = 12;
+        tip.style.left = "0px";
+        tip.style.top = "0px";
+        const b = btn.getBoundingClientRect();
+        const t = tip.getBoundingClientRect();
+        const left = Math.max(edge, Math.min(b.left + b.width / 2 - t.width / 2, innerWidth - t.width - edge));
+        let top = b.bottom + gap;
+        if (top + t.height > innerHeight - edge) top = b.top - t.height - gap;
+        tip.style.left = left + "px";
+        tip.style.top = Math.max(edge, top) + "px";
+    }
+
+    function hide() {
+        clearTimeout(hideTimer);
+        if (!open) return false;
+        open.classList.remove("show");
+        open.hidden = true;
+        open = null;
+        return true;
+    }
+
+    function show(btn) {
+        clearTimeout(hideTimer);
+        const tip = $(btn.getAttribute("aria-describedby"));
+        if (open === tip) return;
+        hide();
+        tip.hidden = false;
+        place(btn, tip);
+        tip.classList.add("show");
+        open = tip;
+    }
+
+    function hideSoon() {
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(hide, 150);
+    }
+
+    for (const btn of document.querySelectorAll(".info[data-tip]")) {
+        const tip = document.createElement("span");
+        tip.className = "tip";
+        tip.id = "tip-" + ++count;
+        tip.setAttribute("role", "tooltip");
+        tip.textContent = btn.dataset.tip;
+        tip.hidden = true;
+        document.body.append(tip);
+        btn.setAttribute("aria-describedby", tip.id);
+        btn.textContent = "?";
+        btn.addEventListener("mouseenter", () => show(btn));
+        btn.addEventListener("mouseleave", hideSoon);
+        btn.addEventListener("focus", () => show(btn));
+        btn.addEventListener("blur", hide);
+        btn.addEventListener("click", () => show(btn));
+        tip.addEventListener("mouseenter", () => clearTimeout(hideTimer));
+        tip.addEventListener("mouseleave", hideSoon);
+    }
+    document.addEventListener("scroll", hide, true);
+    addEventListener("resize", hide);
+
+    return { hide };
+})();
+
+function markFor(kind) {
+    return kind === "ok" ? ICON.check : kind === "warn" ? ICON.alert : kind === "info" ? ICON.download : ICON.cross;
+}
+
+function paintTiles(st) {
+    const box = $("game-tiles");
+    box.innerHTML = "";
+    const patchValue = { ready: "Installed", pending: "Downloads on Play" }[st.patchState] || st.patchDetail || "Unavailable";
+    const tiles = [
+        ["Game folder", st.installDir ? "Found" : "Not found", st.installDir ? "ok" : "bad"],
         [
             "Game version",
-            st.jarMatches === true ? "Matches patch" : st.jarMatches === false ? "Stale" : "Unknown",
+            st.jarMatches === true ? "Matches the patch" : st.jarMatches === false ? "Update required" : "Unknown",
             st.jarMatches === true ? "ok" : st.jarMatches === false ? "bad" : "warn",
         ],
+        ["Patch", patchValue, { ready: "ok", pending: "info" }[st.patchState] || "bad"],
+        ["Steam", st.steamId ? "Signed in" : "Not signed in", st.steamId ? "ok" : "bad"],
+    ];
+    for (const [label, value, kind] of tiles) {
+        const el = document.createElement("div");
+        el.className = "tile " + kind;
+        el.innerHTML = `<span class="tile-mark">${markFor(kind)}</span><span class="tile-body"><span class="tile-label"></span><span class="tile-value"></span></span>`;
+        el.querySelector(".tile-label").textContent = label;
+        el.querySelector(".tile-value").textContent = value;
+        el.title = value;
+        box.append(el);
+    }
+}
+
+function flagSection(section, kind) {
+    const tab = $("tab-" + section);
+    tab.dataset.flag = kind || "";
+    let sr = tab.querySelector(".sr-only");
+    if (!sr) {
+        sr = document.createElement("span");
+        sr.className = "sr-only";
+        tab.append(sr);
+    }
+    sr.textContent = kind === "bad" ? " (needs attention)" : kind === "warn" ? " (check this)" : "";
+}
+
+function paintSettings(st, s) {
+    paintTiles(st);
+
+    defList($("d-patch"), [
+        ["Build", st.build != null ? String(st.build) : "Unknown"],
         ["Last verified", st.lastStamp ? "Build " + st.lastStamp.build : "Never", st.lastStamp ? "ok" : ""],
-        ["Loaded from", st.lastStamp ? st.lastStamp.origin : "—"],
+        ["Loaded from", st.lastStamp ? st.lastStamp.origin : "Nothing yet"],
     ]);
 
     paintInstall(st);
     defList($("d-install"), [
         ["Path", st.installDir || "Not found", st.installDir ? "" : "bad"],
-        ["Jar", st.jarSha256 ? st.jarSha256.slice(0, 20) : "—"],
-        ["Steam ID", st.steamId || "Not signed in", st.steamId ? "" : "bad"],
-        [
-            "Username",
-            st.accountUsername
-                ? st.accountUsername + (st.accountConfirmed ? " (this Steam account)" : " (not joined yet)")
-                : "Not chosen",
-            st.accountUsername ? "" : "warn",
-        ],
+        ["Jar hash", st.jarSha256 ? st.jarSha256.slice(0, 20) : "Unknown"],
         [
             "Steam options",
             st.steamLaunchOptions || "None",
             st.blockingLaunchOption ? "bad" : st.steamLaunchOptions ? "warn" : "",
         ],
     ]);
+    $("steam-id-value").textContent = st.steamId || "Not signed in";
+    $("steam-id-value").classList.toggle("bad", !st.steamId);
 
     const rows = [
-        ["Host", st.serverHost || "—"],
-        ["Connect port", st.serverConnectPort != null ? String(st.serverConnectPort) : "—"],
-        ["Query port", st.serverQueryPort != null ? String(st.serverQueryPort) : "—"],
+        ["Host", st.serverHost || "Unknown"],
+        ["Connect port", st.serverConnectPort != null ? String(st.serverConnectPort) : "Unknown"],
+        ["Query port", st.serverQueryPort != null ? String(st.serverQueryPort) : "Unknown"],
     ];
     if (s) for (const [k, v] of Object.entries(s.rules)) rows.push([k, v || "(empty)"]);
     defList($("d-server"), rows);
 
     const characters = st.accountNames || [];
     defList($("d-characters"), [
-        ["Playing as", st.accountUsername || "Not chosen"],
+        ["Playing as", st.accountUsername || "Not chosen", st.accountUsername ? "" : "warn"],
         ["On this account", characters.length ? characters.join(", ") : "None yet"],
+        [
+            "Username",
+            !st.accountUsername ? "Not chosen" : st.accountConfirmed ? "Locked to this Steam account" : "Not joined yet",
+        ],
     ]);
-    // Before the first join the front page still owns choosing a name, so there is nothing to
-    // add to yet.
+    // Before the first join the front page still owns choosing a name, so there is nothing an
+    // admin could have renamed and nothing to add a character to.
     $("btn-new-character").disabled = !st.accountConfirmed;
-    // Before the first join the name is still unlocked on the front page, so there is nothing
-    // an admin could have renamed and no second route to offer.
     $("btn-change-username").disabled = !st.accountConfirmed;
+    $("account-locked-note").hidden = !!st.accountConfirmed;
 
     paintStaging(st);
 
@@ -538,7 +633,7 @@ function paintDrawer(st, s) {
     ovBanner.hidden = !st.serverOverridden;
     if (st.serverOverridden) {
         ovBanner.textContent =
-            "Advanced override active: joining " +
+            "Override active: joining " +
             (st.serverHost || "?") + ":" + (st.serverConnectPort ?? "?") +
             " instead of the normal server.";
         $("server-advanced").open = true;
@@ -550,10 +645,8 @@ function paintDrawer(st, s) {
     $("debug-toggle-row").hidden = confirmed || !(!!st.debugLaunchOption || st.debugAllowed);
     $("allow-debug").checked = !!st.debugAllowed;
     $("launch-debug").checked = !!st.launchDebug;
-
-    const warn = $("launch-debug-warn");
-    warn.classList.toggle("danger", st.roleGrantsDebug !== true);
-    warn.classList.toggle("armed", !!st.launchDebug && st.roleGrantsDebug !== true);
+    const armed = !!st.launchDebug && !confirmed;
+    $("launch-debug-warn").hidden = !armed;
 
     const note = $("debug-role-note");
     if (confirmed) {
@@ -568,7 +661,106 @@ function paintDrawer(st, s) {
         note.textContent = "";
     }
     note.hidden = !relevant || !note.textContent;
+    note.classList.toggle("bad", st.roleGrantsDebug === false);
+
+    const patchBroken = st.patchState !== "ready" && st.patchState !== "pending";
+    flagSection(
+        "game",
+        !st.installDir || !st.steamId || st.jarMatches === false || st.blockingLaunchOption || patchBroken
+            ? "bad"
+            : st.jarMatches == null ? "warn" : ""
+    );
+    flagSection("account", st.accountUsername ? "" : "warn");
+    flagSection("server", st.serverOverridden ? "warn" : "");
+    flagSection("advanced", armed ? (st.roleGrantsDebug === false ? "bad" : "warn") : "");
 }
+
+const SECTIONS = ["game", "account", "server", "content", "performance", "advanced", "activity"];
+const SECTION_KEY = "p97.settings.section";
+
+function rememberedSection() {
+    try {
+        const saved = localStorage.getItem(SECTION_KEY);
+        return SECTIONS.includes(saved) ? saved : "game";
+    } catch {
+        return "game";
+    }
+}
+
+function currentSection() {
+    return SECTIONS.find((s) => $("tab-" + s).getAttribute("aria-selected") === "true") || "game";
+}
+
+function showSection(name, focusTab) {
+    for (const s of SECTIONS) {
+        const on = s === name;
+        const tab = $("tab-" + s);
+        tab.setAttribute("aria-selected", String(on));
+        tab.tabIndex = on ? 0 : -1;
+        $("panel-" + s).hidden = !on;
+    }
+    tips.hide();
+    $("settings-content").scrollTop = 0;
+    if (name === "activity") $("log").scrollTop = $("log").scrollHeight;
+    try {
+        localStorage.setItem(SECTION_KEY, name);
+    } catch {
+    }
+    if (focusTab) $("tab-" + name).focus();
+}
+
+function settingsOpen() {
+    return !$("settings").hidden;
+}
+
+function openSettings(section) {
+    showSection(section || rememberedSection());
+    if (!settingsOpen()) {
+        $("settings").hidden = false;
+        document.querySelector("main").inert = true;
+        $("btn-settings").setAttribute("aria-expanded", "true");
+        refreshSteamAccounts();
+        refreshStatus().then(refreshStaging);
+        requestAnimationFrame(() => $("settings").classList.add("in"));
+    }
+    $("tab-" + currentSection()).focus();
+}
+
+function closeSettings() {
+    if (!settingsOpen()) return;
+    tips.hide();
+    const hadFocus = $("settings").contains(document.activeElement);
+    $("settings").classList.remove("in");
+    $("settings").hidden = true;
+    document.querySelector("main").inert = false;
+    $("btn-settings").setAttribute("aria-expanded", "false");
+    if (hadFocus) $("btn-settings").focus();
+}
+
+$("btn-settings").addEventListener("click", () => (settingsOpen() ? closeSettings() : openSettings()));
+$("btn-settings-back").addEventListener("click", closeSettings);
+
+$("settings-tabs").addEventListener("click", (e) => {
+    const tab = e.target.closest("[role=tab]");
+    if (tab) showSection(tab.dataset.section, true);
+});
+
+$("settings-tabs").addEventListener("keydown", (e) => {
+    const i = SECTIONS.indexOf(currentSection());
+    const next = {
+        ArrowDown: i + 1, ArrowRight: i + 1, ArrowUp: i - 1, ArrowLeft: i - 1, Home: 0, End: SECTIONS.length - 1,
+    }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    showSection(SECTIONS[(next + SECTIONS.length) % SECTIONS.length], true);
+});
+
+document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (tips.hide()) return e.preventDefault();
+    if (document.querySelector("dialog[open]")) return;
+    if (settingsOpen()) closeSettings();
+});
 
 let fitTimer = null;
 
@@ -611,35 +803,41 @@ function fitWindow() {
 
 const MEMORY_PRESETS = [3072, 4096, 6144, 8192, 12288, 16384, 24576, 32768];
 
+const MEMORY_SELECTS = ["select-memory", "settings-memory"];
+$("settings-memory").innerHTML = $("select-memory").innerHTML;
+
 function paintMemory(st) {
     $("memory-chip").hidden = !st.memorySupported;
+    $("settings-memory-row").hidden = !st.memorySupported;
     if (!st.memorySupported) return;
 
-    const select = $("select-memory");
     const mb = st.memoryMb;
-
-    let custom = select.querySelector("option[data-custom]");
-    if (mb != null && !MEMORY_PRESETS.includes(mb)) {
-        if (!custom) {
-            custom = document.createElement("option");
-            custom.dataset.custom = "1";
-            select.append(custom);
+    for (const id of MEMORY_SELECTS) {
+        const select = $(id);
+        let custom = select.querySelector("option[data-custom]");
+        if (mb != null && !MEMORY_PRESETS.includes(mb)) {
+            if (!custom) {
+                custom = document.createElement("option");
+                custom.dataset.custom = "1";
+                select.append(custom);
+            }
+            custom.value = String(mb);
+            custom.textContent = (mb / 1024).toFixed(1).replace(/\.0$/, "") + " GB (custom)";
+        } else if (custom) {
+            custom.remove();
         }
-        custom.value = String(mb);
-        custom.textContent = (mb / 1024).toFixed(1).replace(/\.0$/, "") + " GB (custom)";
-    } else if (custom) {
-        custom.remove();
+        select.value = mb != null ? String(mb) : "";
+        select.disabled = state.playing || !st.installDir;
     }
 
-    select.value = mb != null ? String(mb) : "";
-    select.disabled = state.playing || !st.installDir;
     $("memory-chip").title = mb != null
         ? "Memory allocated to Project Zomboid"
         : "Could not read ProjectZomboid64.json";
     $("memory-warn").hidden = !st.memoryIsDefault;
+    $("settings-memory-warn").hidden = !st.memoryIsDefault;
 }
 
-$("select-memory").addEventListener("change", async (e) => {
+for (const id of MEMORY_SELECTS) $(id).addEventListener("change", async (e) => {
     const mb = parseInt(e.target.value, 10);
     if (!Number.isFinite(mb)) return;
     e.target.disabled = true;
@@ -670,7 +868,7 @@ async function refreshStatus() {
     paintChecks(st);
     paintNotice(st);
     paintPlay(st);
-    paintDrawer(st, state.server);
+    paintSettings(st, state.server);
     fitWindow();
 }
 
@@ -682,7 +880,7 @@ async function refreshServer() {
         state.server = null;
         paintServer(null);
     }
-    if (state.status) paintDrawer(state.status, state.server);
+    if (state.status) paintSettings(state.status, state.server);
 }
 
 function paintStaging(st) {
@@ -768,40 +966,10 @@ function exitWorking() {
     $("checks").hidden = false;
 }
 
-function setDrawer(open) {
-    const d = $("drawer");
-    const b = $("drawer-backdrop");
-    $("btn-details").setAttribute("aria-expanded", String(open));
-    if (open) {
-        d.hidden = false;
-        b.hidden = false;
-        refreshSteamAccounts();
-        refreshStatus().then(refreshStaging);
-        requestAnimationFrame(() => {
-            d.classList.add("in");
-            b.classList.add("in");
-        });
-    } else {
-        d.classList.remove("in");
-        b.classList.remove("in");
-        setTimeout(() => {
-            d.hidden = true;
-            b.hidden = true;
-        }, 260);
-    }
-}
-
-$("btn-details").addEventListener("click", () => setDrawer($("drawer").hidden));
-$("btn-close").addEventListener("click", () => setDrawer(false));
-$("drawer-backdrop").addEventListener("click", () => setDrawer(false));
-document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") setDrawer(false);
-});
-
 $("play").addEventListener("click", () => runPlay(false));
 
 $("btn-play-staging").addEventListener("click", () => {
-    setDrawer(false);
+    closeSettings();
     runPlay(true);
 });
 
@@ -825,13 +993,13 @@ async function runPlay(staging) {
         } else if (r.patchVerified) {
             toast("Session finished", "Patch was active. Game files restored.");
         } else {
-            toast("Session finished", "The patch could not be verified. See Details.", true);
+            toast("Session finished", "The patch could not be verified. See Settings.", true);
         }
         if (r.restored) log("restore", "ProjectZomboid64.json restored");
     } catch (e) {
         log("error", String(e), true);
         toast("Cannot launch", String(e), true);
-        setDrawer(true);
+        openSettings(state.status && !state.status.installDir ? "game" : "activity");
     } finally {
         exitWorking();
         await refreshStatus();
@@ -841,12 +1009,12 @@ async function runPlay(staging) {
 $("btn-edit-name").addEventListener("click", () => startEditingName("choose"));
 
 $("btn-new-character").addEventListener("click", () => {
-    setDrawer(false);
+    closeSettings();
     startEditingName("add");
 });
 
 $("btn-change-username").addEventListener("click", () => {
-    setDrawer(false);
+    closeSettings();
     startEditingName("rename");
 });
 
@@ -915,8 +1083,8 @@ async function loadFilmsChoices() {
     }
     $("films-skip-copyrighted").checked = choices.skipCopyrighted === true;
     $("films-background").checked = choices.background === true;
-    // Either question unanswered reopens the dialog, so players who answered only the first still get the second.
-    if (choices.skipCopyrighted === null || choices.background === null) {
+    if (choices.ask) {
+        $("films-dialog-again").hidden = choices.skipCopyrighted === null && choices.background === null;
         $("films-dialog-skip").checked = choices.skipCopyrighted === true;
         $("films-dialog-background").checked = choices.background !== false;
         $("films-dialog").showModal();
@@ -924,7 +1092,7 @@ async function loadFilmsChoices() {
 }
 
 for (const [id, message] of [
-    ["films-skip-copyrighted", (on) => [on ? "Skipping copyrighted videos" : "Keeping every video", "Takes effect the next time you press Play."]],
+    ["films-skip-copyrighted", (on) => [on ? "Skipping copyrighted videos and songs" : "Keeping every video and song", "Takes effect the next time you press Play."]],
     ["films-background", (on) => on
         ? ["Downloading new videos while you play", "Takes effect within a few minutes, even mid-session."]
         : ["New videos wait for your next Play", "A download already under way finishes first."]],
@@ -961,8 +1129,8 @@ async function loadPerformanceMode() {
         $("performance-mode").disabled = !s.canChange;
         if (!s.canChange) {
             note.textContent =
-                "Project Zomboid is running. Quit it before changing this — the game " +
-                "rewrites its settings file when it closes and would overwrite the change.";
+                "Project Zomboid is running. Quit it before changing this, the game " +
+                "rewrites its settings file when it closes and would undo the change.";
             note.hidden = false;
         } else {
             note.hidden = true;
@@ -1093,8 +1261,9 @@ $("btn-install-clear").addEventListener("click", async () => {
 });
 
 $("btn-locate").addEventListener("click", async () => {
-    setDrawer(true);
+    openSettings("game");
     await browseForInstall();
+    $("install-path").focus();
 });
 
 $("btn-copy-steamid").addEventListener("click", async () => {
@@ -1135,6 +1304,7 @@ function paintVersionChip() {
     const chip = $("chip-version");
     const current = state.status ? state.status.launcherVersion : null;
     chip.textContent = current ? "v" + current : "v—";
+    $("settings-version").textContent = current ? "Launcher v" + current : "Launcher";
     chip.classList.toggle("has-update", !!updateReady);
     chip.disabled = !updateReady;
     if (updateReady) {
@@ -1155,7 +1325,7 @@ function paintUpdate(info) {
         btn.textContent = "Install " + info.version;
     } else {
         updateReady = null;
-        note.textContent = info ? "Up to date (" + info.currentVersion + ")." : "";
+        note.textContent = info ? "Up to date." : "";
         note.classList.remove("ready");
         btn.textContent = "Check for updates";
     }

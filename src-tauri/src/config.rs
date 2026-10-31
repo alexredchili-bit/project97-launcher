@@ -39,6 +39,26 @@ pub fn press_seq_guard_path() -> PathBuf {
     app_dir().join("security").join("press-seq.json")
 }
 
+pub const RADIO_URL_ENV: &str = "PLZ_RADIO_URL";
+
+pub const DEFAULT_RADIO_URL: &str = match option_env!("PLZ_RADIO_URL_BAKED") {
+    Some(url) => url,
+    None => "https://files.project97.life/radio",
+};
+
+/// The game opens uploads from this exact folder (PLZStation.uploadPath in the Java patch).
+pub fn radio_tracks_dir() -> PathBuf {
+    zomboid_home().join("Lua").join("PLZRadio").join("tracks")
+}
+
+pub fn radio_marker_path() -> PathBuf {
+    zomboid_home().join("Lua").join("PLZRadio").join("launcher.json")
+}
+
+pub fn radio_seq_guard_path() -> PathBuf {
+    app_dir().join("security").join("radio-seq.json")
+}
+
 pub const APP_DIR_NAME: &str = "Project97Launcher";
 
 // The launcher this one replaces: its classpath entries still have to be recognised.

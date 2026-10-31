@@ -171,7 +171,7 @@
         {
             "id": "3379334330",
             "name": "'82 Porsche 911",
-            "timeUpdated": 1775153656
+            "timeUpdated": 1793302929
         },
         {
             "id": "3366300557",
@@ -246,7 +246,7 @@
         {
             "id": "3171167894",
             "name": "that DAMN Library",
-            "timeUpdated": 1793126759
+            "timeUpdated": 1793302994
         },
         {
             "id": "3161951724",
@@ -450,13 +450,13 @@
         },
         {
             "id": "3722064198",
-            "name": "[42.20.4MP] Gunworks Framework",
-            "timeUpdated": 1792749804
+            "name": "[42.21MP] Gunworks Framework",
+            "timeUpdated": 1793314239
         },
         {
             "id": "3722134990",
             "name": "[42.21MP] GoM - Guns of Marz",
-            "timeUpdated": 1792738124
+            "timeUpdated": 1793314263
         },
         {
             "id": "3401134276",
@@ -521,7 +521,7 @@
         {
             "id": "3646414716",
             "name": "Aquatsar Yacht Club B42",
-            "timeUpdated": 1791830807
+            "timeUpdated": 1793323675
         },
         {
             "id": "3749026793",
@@ -696,7 +696,7 @@
         {
             "id": "2335368829",
             "name": "Authentic Z",
-            "timeUpdated": 1789340498
+            "timeUpdated": 1793409459
         },
         {
             "id": "2812326159",
@@ -731,12 +731,12 @@
         {
             "id": "3718883428",
             "name": "RC's Structures Framework [B42.17+ MP]",
-            "timeUpdated": 1793242562
+            "timeUpdated": 1793418763
         },
         {
             "id": "3812970899",
             "name": "Better Building Plus [B42 MP]",
-            "timeUpdated": 1793242593
+            "timeUpdated": 1793418799
         },
         {
             "id": "2761200458",
@@ -842,6 +842,11 @@
             "id": "2795036124",
             "name": "More Plushies",
             "timeUpdated": 1791755763
+        },
+        {
+            "id": "3816642421",
+            "name": "Mattnetic's Halloween Event [B42] - ALPHA",
+            "timeUpdated": 1792097920
         }
     ],
     "newsUrl": "https://files.project97.life/news.json",

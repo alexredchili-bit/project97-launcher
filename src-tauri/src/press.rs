@@ -328,7 +328,7 @@ fn client() -> Result<reqwest::Client> {
         .build()?)
 }
 
-async fn fetch_capped(url: String, limit: u64) -> Result<Vec<u8>> {
+pub(crate) async fn fetch_capped(url: String, limit: u64) -> Result<Vec<u8>> {
     if let Some(rest) = url.strip_prefix("file:///") {
         let bytes = fs::read(rest.split('?').next().unwrap_or(rest))?;
         if bytes.len() as u64 > limit {

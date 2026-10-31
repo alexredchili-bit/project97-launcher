@@ -159,6 +159,7 @@ public final class PLZPayloadIndex {
         "zombie.plz.PLZTickRate",
         "zombie.plz.PLZTorchZone",
         "zombie.plz.PLZTreeBake",
+        "zombie.plz.PLZUploadSound",
         "zombie.plz.PLZUtilities",
         "zombie.plz.PLZVariableSync",
         "zombie.plz.PLZVehicleAccess",

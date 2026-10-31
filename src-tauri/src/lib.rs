@@ -15,6 +15,7 @@ pub mod perfmode;
 pub mod perfmode_commands;
 pub mod press;
 pub mod query;
+pub mod radio;
 pub mod selfupdate;
 pub mod serverlist;
 pub mod session_log;
@@ -754,6 +755,14 @@ pub async fn run_play(
             notes.push(format!("Downloaded {} Press page(s).", report.downloaded));
         }
     }
+    progress("download", "Updating radio station songs");
+    let radio_outcome = radio::sync().await;
+    radio::log_outcome(&radio_outcome);
+    if let Ok(Some(report)) = &radio_outcome {
+        if report.downloaded > 0 {
+            notes.push(format!("Downloaded {} radio song(s).", report.downloaded));
+        }
+    }
     progress("films", "Checking cinema videos");
     let film_choices = films::read_choices();
     let synced = match films::fetch_index().await {
@@ -822,6 +831,7 @@ pub async fn run_play(
         let mut last_code: Option<String> = None;
         let press_stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         press::refresh_until(press_stop.clone());
+        radio::refresh_until(press_stop.clone());
         films::refresh_until(press_stop.clone(), install_dir.clone());
         live::serve_until(press_stop.clone());
         launch::wait_for_exit_with(&mut watch, || {
@@ -1042,14 +1052,14 @@ async fn set_body_override(enabled: bool) -> Result<bool> {
 }
 
 #[tauri::command]
-async fn get_films_choices() -> Result<films::Choices> {
-    Ok(films::read_choices())
+async fn get_films_choices() -> Result<films::ChoicesView> {
+    Ok(films::read_choices().into())
 }
 
 #[tauri::command]
-async fn set_films_choices(skip_copyrighted: bool, background: bool) -> Result<films::Choices> {
+async fn set_films_choices(skip_copyrighted: bool, background: bool) -> Result<films::ChoicesView> {
     films::write_choices(skip_copyrighted, background)?;
-    Ok(films::read_choices())
+    Ok(films::read_choices().into())
 }
 
 #[tauri::command]

@@ -154,6 +154,11 @@ public final class PLZSoundPriority {
         }
     }
 
+    /** The priority apply() gives a music clip, or -1 when that fix is off. */
+    static int musicPriority() {
+        return PLZFixes.on(PLZFixes.SOUND_MUSIC_PRIORITY) ? readLoopPriority() : -1;
+    }
+
     public static boolean hasRun() {
         return ran;
     }

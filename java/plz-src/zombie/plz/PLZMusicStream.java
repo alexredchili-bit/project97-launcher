@@ -42,6 +42,11 @@ public final class PLZMusicStream {
     }
 
     public static synchronized String streamPath(GameSoundClip clip) {
+        // Uploads must stream whatever the kill switch says: the engine refuses to load a file from outside a mod.
+        if (clip != null && PLZUploadSound.isMarker(clip.file)) {
+            return PLZUploadSound.pathFor(clip);
+        }
+
         if (clip == null || clip.file == null || clip.gameSound == null || !PLZFixes.on(PLZFixes.SOUND_MUSIC_STREAM)) {
             return null;
         }

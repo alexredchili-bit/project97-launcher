@@ -46,12 +46,36 @@ fn unmarked_counts_as_copyrighted() -> bool {
     true
 }
 
+/// Bumped when the question changes, so every player is asked once more with their old answers filled in.
+pub const CHOICES_ASKED: u32 = 2;
+
 /// `None` in either field means the player has not been asked that yet.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Choices {
     pub skip_copyrighted: Option<bool>,
     pub background: Option<bool>,
+    pub asked: u32,
+}
+
+impl Choices {
+    pub fn needs_asking(&self) -> bool {
+        self.asked < CHOICES_ASKED || self.skip_copyrighted.is_none() || self.background.is_none()
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChoicesView {
+    #[serde(flatten)]
+    pub choices: Choices,
+    pub ask: bool,
+}
+
+impl From<Choices> for ChoicesView {
+    fn from(choices: Choices) -> Self {
+        ChoicesView { choices, ask: choices.needs_asking() }
+    }
 }
 
 fn parse_choices(text: &str) -> Choices {
@@ -59,6 +83,7 @@ fn parse_choices(text: &str) -> Choices {
     for line in text.lines() {
         let Some((key, value)) = line.trim().split_once('=') else { continue };
         match (key.trim(), value.trim()) {
+            ("asked", n) => c.asked = n.parse().unwrap_or(0),
             ("copyrighted", "skip") => c.skip_copyrighted = Some(true),
             ("copyrighted", "keep") => c.skip_copyrighted = Some(false),
             ("background", "on") => c.background = Some(true),
@@ -75,19 +100,21 @@ pub fn read_choices() -> Choices {
         .unwrap_or_default()
 }
 
+fn render_choices(skip_copyrighted: bool, background: bool) -> String {
+    format!(
+        "asked={}\r\ncopyrighted={}\r\nbackground={}\r\n",
+        CHOICES_ASKED,
+        if skip_copyrighted { "skip" } else { "keep" },
+        if background { "on" } else { "off" }
+    )
+}
+
 pub fn write_choices(skip_copyrighted: bool, background: bool) -> Result<()> {
     let path = config::films_choice_path();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::write(
-        &path,
-        format!(
-            "copyrighted={}\r\nbackground={}\r\n",
-            if skip_copyrighted { "skip" } else { "keep" },
-            if background { "on" } else { "off" }
-        ),
-    )?;
+    fs::write(&path, render_choices(skip_copyrighted, background))?;
     Ok(())
 }
 
@@ -1004,6 +1031,27 @@ mod tests {
         let both = parse_choices("copyrighted=keep\r\nbackground=on\r\n");
         assert_eq!((both.skip_copyrighted, both.background), (Some(false), Some(true)));
         assert_eq!(parse_choices("background=maybe").background, None);
+    }
+
+    #[test]
+    fn a_saved_answer_round_trips_and_is_not_asked_again() {
+        for (skip, background) in [(true, true), (true, false), (false, true), (false, false)] {
+            let c = parse_choices(&render_choices(skip, background));
+            assert_eq!(c, Choices { skip_copyrighted: Some(skip), background: Some(background), asked: CHOICES_ASKED });
+            assert!(!c.needs_asking());
+        }
+    }
+
+    #[test]
+    fn a_file_from_before_songs_is_asked_again_with_its_old_answers_kept() {
+        let old = parse_choices("copyrighted=skip\r\nbackground=off\r\n");
+        assert_eq!((old.skip_copyrighted, old.background, old.asked), (Some(true), Some(false), 0));
+        assert!(old.needs_asking());
+        assert!(parse_choices("").needs_asking());
+        assert!(parse_choices("asked=1\r\ncopyrighted=keep\r\nbackground=on\r\n").needs_asking());
+        assert!(parse_choices("asked=junk\r\ncopyrighted=keep\r\nbackground=on\r\n").needs_asking());
+        assert!(parse_choices("asked=2\r\ncopyrighted=keep\r\n").needs_asking());
+        assert!(!parse_choices("asked=3\r\ncopyrighted=keep\r\nbackground=on\r\n").needs_asking());
     }
 
     #[test]

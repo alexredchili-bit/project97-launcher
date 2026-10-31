@@ -16,7 +16,7 @@
                 <span class="steam-session" id="chip-steam">Steam &mdash;</span>
                 <span class="build" id="chip-build">Build &mdash;</span>
                 <div class="memory-chip" id="memory-chip" title="Memory allocated to Project Zomboid">
-                    <select id="select-memory" class="memory-select">
+                    <select id="select-memory" class="memory-select" aria-label="Memory for Project Zomboid">
                         <option value="" hidden>&mdash;</option>
                         <option value="3072">3 GB (default)</option>
                         <option value="4096">4 GB</option>
@@ -30,7 +30,7 @@
                     <span class="memory-warn" id="memory-warn" title="Still at the default 3 GB. More helps if you run mods." hidden></span>
                 </div>
                 <button class="build" id="chip-version" type="button" disabled>v&mdash;</button>
-                <button class="btn btn-ghost" id="btn-details" aria-expanded="false">Details</button>
+                <button class="btn btn-ghost" id="btn-settings" type="button" aria-expanded="false" aria-controls="settings">Settings</button>
             </div>
         </header>
 
@@ -129,174 +129,263 @@
 
             <footer class="community-links" id="community-links" hidden aria-label="Community links"></footer>
         </main>
+
+        <section class="settings" id="settings" hidden aria-labelledby="settings-title">
+            <div class="settings-head">
+                <button class="btn btn-ghost" id="btn-settings-back" type="button">Back</button>
+                <h2 id="settings-title">Settings</h2>
+            </div>
+
+            <div class="settings-body">
+                <nav class="settings-nav" aria-label="Settings sections">
+                    <div role="tablist" aria-orientation="vertical" id="settings-tabs">
+                        <button role="tab" type="button" id="tab-game" aria-controls="panel-game" data-section="game">Game<i class="nav-flag" aria-hidden="true"></i></button>
+                        <button role="tab" type="button" id="tab-account" aria-controls="panel-account" data-section="account">Account &amp; characters<i class="nav-flag" aria-hidden="true"></i></button>
+                        <button role="tab" type="button" id="tab-server" aria-controls="panel-server" data-section="server">Server<i class="nav-flag" aria-hidden="true"></i></button>
+                        <button role="tab" type="button" id="tab-content" aria-controls="panel-content" data-section="content">Content<i class="nav-flag" aria-hidden="true"></i></button>
+                        <button role="tab" type="button" id="tab-performance" aria-controls="panel-performance" data-section="performance">Performance<i class="nav-flag" aria-hidden="true"></i></button>
+                        <button role="tab" type="button" id="tab-advanced" aria-controls="panel-advanced" data-section="advanced">Advanced<i class="nav-flag" aria-hidden="true"></i></button>
+                        <button role="tab" type="button" id="tab-activity" aria-controls="panel-activity" data-section="activity">Activity<i class="nav-flag" aria-hidden="true"></i></button>
+                    </div>
+                </nav>
+
+                <div class="settings-content" id="settings-content">
+                    <section class="panel" role="tabpanel" id="panel-game" aria-labelledby="tab-game" hidden>
+                        <h3 class="panel-title">Game</h3>
+                        <div class="tiles" id="game-tiles"></div>
+
+                        <div class="row stack">
+                            <div class="row-label">
+                                <label for="install-path">Game folder</label>
+                                <button class="info" type="button" aria-label="About the game folder"
+                                        data-tip="The folder Steam installed Project Zomboid into. The launcher finds it on its own, so only change this if it's looking in the wrong place."></button>
+                            </div>
+                            <p class="row-note" id="install-hint"></p>
+                            <div class="row-control">
+                                <input id="install-path" class="input" type="text" spellcheck="false" autocomplete="off"
+                                       placeholder="C:\Program Files (x86)\Steam\steamapps\common\ProjectZomboid" />
+                                <div class="field-actions">
+                                    <button class="btn btn-secondary" id="btn-install-browse" type="button">Browse</button>
+                                    <button class="btn btn-secondary" id="btn-install-apply" type="button">Use this folder</button>
+                                    <button class="btn btn-ghost" id="btn-install-clear" type="button" hidden>Find it automatically</button>
+                                </div>
+                            </div>
+                            <p class="row-alert bad" id="install-error" role="alert" hidden></p>
+                        </div>
+
+                        <div class="row">
+                            <div class="row-label">
+                                <span>Steam ID</span>
+                                <button class="info" type="button" aria-label="About your Steam ID"
+                                        data-tip="Admins ask for this when they add you to a whitelist, like the staging server's."></button>
+                                <span class="row-value num" id="steam-id-value">Checking</span>
+                            </div>
+                            <div class="row-control">
+                                <button class="btn btn-secondary" id="btn-copy-steamid" type="button">Copy my Steam ID</button>
+                            </div>
+                        </div>
+
+                        <div class="row" id="steam-account-row" hidden>
+                            <div class="row-label">
+                                <label for="steam-account">Steam account</label>
+                                <button class="info" type="button" aria-label="About the Steam account"
+                                        data-tip="The Steam account the game starts on, when this PC has more than one. The server confirms it on your next join."></button>
+                            </div>
+                            <div class="row-control">
+                                <select id="steam-account" class="input"></select>
+                            </div>
+                        </div>
+
+                        <h4 class="group-title">Install details</h4>
+                        <dl id="d-patch"></dl>
+                        <dl id="d-install"></dl>
+                    </section>
+
+                    <section class="panel" role="tabpanel" id="panel-account" aria-labelledby="tab-account" hidden>
+                        <h3 class="panel-title">Account &amp; characters</h3>
+                        <dl id="d-characters"></dl>
+                        <p class="row-note" id="account-locked-note" hidden>Both of these open up after your first join. Until then, pick your name on the main screen.</p>
+
+                        <div class="row">
+                            <div class="row-label">
+                                <span>Change username</span>
+                                <button class="info" type="button" aria-label="About changing your username"
+                                        data-tip="Your username locks to this Steam account on your first join. Only an admin can rename it, through the Discord bot, while the server is stopped. Put the new name in here once they say it's done. Any earlier and the server turns you away, or makes a brand new character if you have a spare slot."></button>
+                            </div>
+                            <div class="row-control">
+                                <button class="btn btn-secondary" id="btn-change-username" type="button">Change username</button>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="row-label">
+                                <span>New character</span>
+                                <button class="info" type="button" aria-label="About new characters"
+                                        data-tip="A second character needs a character slot, and staff hand those out. Without one the server turns the new name away when you press Play."></button>
+                            </div>
+                            <div class="row-control">
+                                <button class="btn btn-secondary" id="btn-new-character" type="button">New character</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="panel" role="tabpanel" id="panel-server" aria-labelledby="tab-server" hidden>
+                        <h3 class="panel-title">Server</h3>
+                        <p class="row-alert bad" id="server-override-banner" hidden></p>
+
+                        <h4 class="group-title">Live server</h4>
+                        <dl id="d-server"></dl>
+
+                        <div id="staging-section" hidden>
+                            <div class="group-head">
+                                <h4 class="group-title">Staging server</h4>
+                                <button class="info" type="button" aria-label="About the staging server"
+                                        data-tip="A copy of the live server, for trying things out before they go live. Nothing you do there reaches the live server. It has its own whitelist, so an admin has to add your Steam ID first."></button>
+                            </div>
+                            <dl id="d-staging"></dl>
+                            <div class="group-actions">
+                                <button class="btn btn-secondary" id="btn-play-staging" type="button">Play on staging</button>
+                            </div>
+                        </div>
+
+                        <details class="advanced" id="server-advanced">
+                            <summary>Use a different server</summary>
+                            <div class="advanced-body">
+                                <p class="row-note">Clear the address to go back to the normal server.</p>
+                                <div class="field-grid">
+                                    <label class="field">
+                                        <span>Address</span>
+                                        <input id="ov-host" class="input" type="text" placeholder="167.114.174.186" spellcheck="false" />
+                                    </label>
+                                    <label class="field">
+                                        <span>Connect port</span>
+                                        <input id="ov-connect" class="input" type="number" min="1" max="65535" placeholder="26935" />
+                                    </label>
+                                    <label class="field">
+                                        <span>Query port</span>
+                                        <input id="ov-query" class="input" type="number" min="1" max="65535" placeholder="26935" />
+                                    </label>
+                                </div>
+                                <div class="field-actions">
+                                    <button class="btn btn-secondary" id="btn-ov-apply" type="button">Apply</button>
+                                    <button class="btn btn-secondary" id="btn-ov-clear" type="button">Use normal server</button>
+                                </div>
+                            </div>
+                        </details>
+                    </section>
+
+                    <section class="panel" role="tabpanel" id="panel-content" aria-labelledby="tab-content" hidden>
+                        <h3 class="panel-title">Content</h3>
+
+                        <h4 class="group-title">Videos and songs</h4>
+                        <div class="row">
+                            <div class="row-label">
+                                <label for="films-skip-copyrighted">Skip copyrighted videos and songs</label>
+                                <button class="info" type="button" aria-label="About skipping copyrighted content"
+                                        data-tip="Cinema videos and the songs players upload (cassettes, CDs and vinyl in game) come through the launcher, and some are copyrighted. With this on you skip those, you still get everything else, and copyrighted songs play silent for you. Applies the next time you press Play."></button>
+                            </div>
+                            <div class="row-control">
+                                <input type="checkbox" class="switch" id="films-skip-copyrighted" />
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="row-label">
+                                <label for="films-background">Download new videos while I play</label>
+                                <button class="info" type="button" aria-label="About downloading while you play"
+                                        data-tip="Turn this off and new videos wait until you restart the game. Songs are small, so they keep updating either way."></button>
+                            </div>
+                            <div class="row-control">
+                                <input type="checkbox" class="switch" id="films-background" />
+                            </div>
+                        </div>
+
+                        <h4 class="group-title">Character bodies</h4>
+                        <div class="row">
+                            <div class="row-label">
+                                <label for="body-override">Use Tomb's body overhaul</label>
+                                <button class="info" type="button" aria-label="About the body overhaul"
+                                        data-tip="The server ships a new body model, skin textures and re-fitted clothing. Turn this off to see the vanilla ones. It only changes what you see, on every character, from the next time you connect."></button>
+                            </div>
+                            <div class="row-control">
+                                <input type="checkbox" class="switch" id="body-override" />
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="panel" role="tabpanel" id="panel-performance" aria-labelledby="tab-performance" hidden>
+                        <h3 class="panel-title">Performance</h3>
+                        <div class="row">
+                            <div class="row-label">
+                                <label for="performance-mode">Performance mode</label>
+                                <button class="info" type="button" aria-label="About performance mode"
+                                        data-tip="For frame rate trouble, mostly in rain and while driving. It lowers puddles, water, texture size and a few effects, and leaves your resolution, frame rate cap and 3D ground items alone. Turning it off puts your old settings back, unless you've changed them in the game since. Applies the next time you press Play."></button>
+                                <span class="row-sub">Turns down the expensive graphics settings</span>
+                            </div>
+                            <div class="row-control">
+                                <input type="checkbox" class="switch" id="performance-mode" />
+                            </div>
+                            <p class="row-alert warn" id="performance-mode-note" hidden></p>
+                        </div>
+                        <div class="row" id="settings-memory-row" hidden>
+                            <div class="row-label">
+                                <label for="settings-memory">Memory</label>
+                                <button class="info" type="button" aria-label="About memory"
+                                        data-tip="How much RAM Project Zomboid gets. More helps when you run a lot of mods. Applies the next time the game starts. Also in the top bar."></button>
+                                <span class="row-sub warn" id="settings-memory-warn" hidden>Still at the default 3 GB</span>
+                            </div>
+                            <div class="row-control">
+                                <select id="settings-memory" class="input"></select>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="panel" role="tabpanel" id="panel-advanced" aria-labelledby="tab-advanced" hidden>
+                        <h3 class="panel-title">Advanced</h3>
+                        <div class="row" id="launch-debug-row">
+                            <div class="row-label">
+                                <label for="launch-debug">Debug mode</label>
+                                <button class="info" type="button" aria-label="About debug mode"
+                                        data-tip="Server admins only. The server drops a debug client during the join unless the account has the built-in admin role. Moderators, GMs and ordinary players are all refused. Leave this off if you just want to play."></button>
+                                <span class="row-sub">Starts the game with <code>-debug</code></span>
+                            </div>
+                            <div class="row-control">
+                                <input type="checkbox" class="switch" id="launch-debug" />
+                            </div>
+                            <p class="row-alert bad" id="launch-debug-warn" hidden>Debug mode is on. The server refuses the join unless your account has the built-in <b>admin</b> role.</p>
+                            <p class="row-note" id="debug-role-note" hidden></p>
+                        </div>
+                        <div class="row" id="debug-toggle-row" hidden>
+                            <div class="row-label">
+                                <label for="allow-debug">Allow <code>-debug</code> from my Steam launch options</label>
+                                <button class="info" type="button" aria-label="About allowing debug from Steam"
+                                        data-tip="Lets the game start with -debug set in your Steam launch options. Off, the launcher refuses to start it. Only the admin role gets in either way."></button>
+                            </div>
+                            <div class="row-control">
+                                <input type="checkbox" class="switch" id="allow-debug" />
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="panel panel-fill" role="tabpanel" id="panel-activity" aria-labelledby="tab-activity" hidden>
+                        <h3 class="panel-title">Activity</h3>
+                        <div id="log" tabindex="0" aria-label="Activity log"></div>
+                    </section>
+                </div>
+            </div>
+
+            <footer class="settings-foot">
+                <div class="foot-version">
+                    <span class="num" id="settings-version">Launcher</span>
+                    <span class="update-note" id="update-note" aria-live="polite"></span>
+                </div>
+                <div class="foot-actions">
+                    <button class="btn btn-secondary" id="btn-refresh" type="button">Refresh</button>
+                    <button class="btn btn-secondary" id="btn-restore" type="button">Restore game files</button>
+                    <button class="btn btn-secondary" id="btn-update" type="button">Check for updates</button>
+                </div>
+            </footer>
+        </section>
     </div>
-
-    <div class="scrim" id="drawer-backdrop" hidden></div>
-    <aside class="drawer" id="drawer" hidden aria-label="Details">
-        <div class="drawer-head">
-            <h2>Details</h2>
-            <button class="btn btn-ghost" id="btn-close">Close</button>
-        </div>
-
-        <div class="drawer-body">
-            <section>
-                <h3>Patch</h3>
-                <dl id="d-patch"></dl>
-            </section>
-            <section>
-                <h3>Install</h3>
-                <dl id="d-install"></dl>
-                <p class="hint" id="install-hint"></p>
-                <label class="field">
-                    <span>Game folder</span>
-                    <input id="install-path" type="text" spellcheck="false" autocomplete="off"
-                           placeholder="C:\Program Files (x86)\Steam\steamapps\common\ProjectZomboid" />
-                </label>
-                <div class="field-actions">
-                    <button class="btn btn-secondary" id="btn-install-browse">Browse</button>
-                    <button class="btn btn-secondary" id="btn-install-apply">Use this folder</button>
-                    <button class="btn btn-ghost" id="btn-install-clear" hidden>Find it automatically</button>
-                </div>
-                <p class="hint bad" id="install-error" hidden></p>
-                <button class="btn btn-secondary" id="btn-copy-steamid">Copy my Steam ID</button>
-                <div id="steam-account-row" hidden>
-                    <p class="hint">Playing as</p>
-                    <select id="steam-account"></select>
-                </div>
-            </section>
-            <section>
-                <h3>Server</h3>
-                <dl id="d-server"></dl>
-                <p class="hint bad" id="server-override-banner" hidden></p>
-                <details id="server-advanced">
-                    <summary class="hint">Advanced</summary>
-                    <p class="hint">
-                        Join a different server than the one this launcher ships with. Leave the
-                        address empty to go back to the normal server.
-                    </p>
-                    <label class="field">
-                        <span>Address</span>
-                        <input id="ov-host" type="text" placeholder="167.114.174.186" spellcheck="false" />
-                    </label>
-                    <label class="field">
-                        <span>Connect port</span>
-                        <input id="ov-connect" type="number" min="1" max="65535" placeholder="26935" />
-                    </label>
-                    <label class="field">
-                        <span>Query port</span>
-                        <input id="ov-query" type="number" min="1" max="65535" placeholder="26935" />
-                    </label>
-                    <button class="btn btn-secondary" id="btn-ov-apply">Apply</button>
-                    <button class="btn btn-secondary" id="btn-ov-clear">Use normal server</button>
-                </details>
-            </section>
-            <section id="staging-section" hidden>
-                <h3>Staging server</h3>
-                <p class="hint">
-                    A copy of the live server, used to try things out before they go live.
-                    Nothing you do there reaches the live server. It keeps its own whitelist, so
-                    you can only join once an admin has added your Steam ID to it.
-                </p>
-                <dl id="d-staging"></dl>
-                <button class="btn btn-secondary" id="btn-play-staging">Play on staging</button>
-            </section>
-            <section>
-                <h3>Characters</h3>
-                <dl id="d-characters"></dl>
-                <p class="hint">
-                    Your username locks to this Steam account the first time you join with it.
-                    Only an admin can change it, through the Discord bot, and only while the
-                    server is stopped. Once one tells you yours is done, put the new name in
-                    here.
-                </p>
-                <p class="hint">
-                    Used any earlier the server turns you away, and on an account with a spare
-                    character slot it makes a brand new character instead of moving you.
-                </p>
-                <button class="btn btn-secondary" id="btn-change-username">Change username</button>
-                <p class="hint">
-                    A second character needs a character slot. Staff hand those out. If you have
-                    been given one, you can make your second character here. Without one the
-                    server will turn the new name away when you press Play.
-                </p>
-                <button class="btn btn-secondary" id="btn-new-character">New character</button>
-            </section>
-            <section>
-                <h3>Character bodies</h3>
-                <label class="toggle">
-                    <input type="checkbox" id="body-override" />
-                    <span>Use Tomb's body overhaul</span>
-                </label>
-                <p class="hint">
-                    The server ships a replacement body model, skin textures and re-fitted
-                    clothing. Turn this off to see the vanilla ones instead. It changes only what
-                    <b>you</b> see, on every character in the world, and applies the next time you
-                    connect.
-                </p>
-            </section>
-            <section>
-                <h3>Cinema videos</h3>
-                <p class="hint">
-                    Videos shown on the server are downloaded through the launcher. Some are
-                    copyrighted; if you opt out of those you will still see all non-copyright
-                    videos. The launcher can also download videos while your game is running. If
-                    you opt out of that, you will need to restart the game to get any added videos.
-                </p>
-                <label class="toggle">
-                    <input type="checkbox" id="films-skip-copyrighted" />
-                    <span>Skip copyrighted videos</span>
-                </label>
-                <label class="toggle">
-                    <input type="checkbox" id="films-background" />
-                    <span>Download new videos while I play</span>
-                </label>
-            </section>
-            <section>
-                <h3>Performance mode</h3>
-                <label class="toggle">
-                    <input type="checkbox" id="performance-mode" />
-                    <span>Turn down the expensive graphics settings</span>
-                </label>
-                <p class="hint">
-                    For frame rate trouble, especially in rain and while driving. It lowers
-                    puddle detail, water, texture size and a few effects, and leaves your
-                    resolution, frame rate cap and 3D ground items exactly as they are. Ground
-                    items stay 3D. Turning it off puts your old settings back, except for
-                    anything you have changed yourself in the game's own options since. Takes
-                    effect the next time you press Play.
-                </p>
-                <p class="hint" id="performance-mode-note" hidden></p>
-            </section>
-            <section>
-                <h3>Debug mode</h3>
-                <label class="toggle" id="launch-debug-row">
-                    <input type="checkbox" id="launch-debug" />
-                    <span>Start the game in debug mode (adds <code>-debug</code>)</span>
-                </label>
-                <p class="hint danger" id="launch-debug-warn">
-                    Server admins only. The server disconnects a debug client during the join
-                    unless the account holds the built-in <b>admin</b> role &mdash; moderator, gm
-                    and ordinary players are all refused. Leave this off if you just want to play.
-                </p>
-                <p class="hint" id="debug-role-note" hidden></p>
-                <label class="toggle" id="debug-toggle-row" hidden>
-                    <input type="checkbox" id="allow-debug" />
-                    <span>Allow <code>-debug</code> from my Steam launch options</span>
-                </label>
-            </section>
-            <section class="grow">
-                <h3>Activity</h3>
-                <div id="log"></div>
-            </section>
-        </div>
-
-        <div class="drawer-foot">
-            <button class="btn btn-secondary" id="btn-refresh">Refresh</button>
-            <button class="btn btn-secondary" id="btn-restore">Restore game files</button>
-            <button class="btn btn-secondary" id="btn-update">Check for updates</button>
-            <span class="update-note" id="update-note"></span>
-        </div>
-    </aside>
 
     <div id="toast" role="status"><div class="t"></div><div class="s"></div></div>
 
@@ -311,22 +400,31 @@
     </dialog>
 
     <dialog class="modal" id="films-dialog" aria-labelledby="films-dialog-title">
-        <h2 id="films-dialog-title">Videos on the server</h2>
-        <p>
-            We can now show videos on the server, and they are downloaded through the launcher.
-            Some videos are going to be copyrighted, just like the songs from Lifestyle and the
-            server's music mods are. If you don't want to have any copyrighted videos sent to
-            you, you can opt out and you will still see all non-copyright videos.
+        <h2 id="films-dialog-title">Videos and songs on the server</h2>
+        <p class="modal-lead" id="films-dialog-again" hidden>
+            We're asking everyone again since this now covers songs as well. Your previous answers
+            are already filled in below.
         </p>
         <p>
-            The videos are heavily compressed, so they use very little disk space and we will be
-            archiving older videos if they start piling up. The launcher is able to download them
-            even when your game is running, but you can opt-out of that too if you want, and
-            instead you will need to restart the game to download any added videos.
+            Players can now upload their own songs and recordings, and they turn up in game as
+            cassettes, CDs and vinyl you can play in any music player. The songs come through the
+            launcher, the same way the cinema videos do.
+        </p>
+        <p>
+            Some of the videos and songs are going to be copyrighted, just like the songs from
+            Lifestyle and the server's music mods are. If you don't want any copyrighted stuff sent
+            to you, you can opt out. You'll still get everything that isn't copyrighted, and
+            copyrighted songs just play silent for you.
+        </p>
+        <p>
+            The videos are heavily compressed, so they use very little disk space, and we'll archive
+            older ones if they start piling up. The launcher can also download new videos while
+            your game is running. If you opt out of that, you'll need to restart the game to get
+            any added videos.
         </p>
         <label class="toggle">
             <input type="checkbox" id="films-dialog-skip" />
-            <span>Skip copyrighted videos</span>
+            <span>Skip copyrighted videos and songs</span>
         </label>
         <label class="toggle">
             <input type="checkbox" id="films-dialog-background" checked />
