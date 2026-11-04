@@ -481,6 +481,10 @@ public interface CharacterInputComponentEntity extends ECSEntity {
         PLZGrappleIK.setGrips(node, grips);
     }
 
+    default void plzGrappleIkPosedHeld(String node, boolean posed) {
+        PLZGrappleIK.setPosedHeld(node, posed);
+    }
+
     default void plzGrappleIkClearNodes() {
         PLZGrappleIK.clearNodes();
     }

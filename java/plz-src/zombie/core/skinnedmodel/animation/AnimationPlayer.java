@@ -1670,14 +1670,14 @@ public final class AnimationPlayer extends PooledObject {
         }
 
         boolean holder = chr.isGrappling();
-        float[] cfg = PLZGrappleIK.nodeConfig(chr.getSharedGrappleAnimNode());
+        float[] cfg = PLZGrappleIK.nodeConfig(holder ? chr.getSharedGrappleAnimNode() : partner.getSharedGrappleAnimNode());
         if (cfg[holder ? PLZGrappleIK.CFG_HOLDER : PLZGrappleIK.CFG_HELD] <= 0.0F) {
             return;
         }
 
         float spacing = PLZGrappleEdit.spacing(holder ? chr : partner);
         PLZGrappleIK.apply(this.plzIkPose, otherPose, cfg[PLZGrappleIK.CFG_NEAR], cfg[PLZGrappleIK.CFG_FAR], holder,
-            cfg[PLZGrappleIK.CFG_GRIPS] > 0.0F, spacing, this.modelTransforms, now);
+            cfg[PLZGrappleIK.CFG_GRIPS] > 0.0F, spacing, cfg[PLZGrappleIK.CFG_POSED_HELD] > 0.0F, this.modelTransforms, now);
     }
 
     public void transformRootChildBones(String boneName, Quaternion rotation) {

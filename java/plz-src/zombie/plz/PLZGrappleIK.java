@@ -29,8 +29,13 @@ public final class PLZGrappleIK {
     private static final float SHARE_MIN = 0.2F;
     public static final long LEAN_EASE_MS = 300L;
     public static final long LEAN_RESET_MS = 300L;
+    public static final long LEAN_RELAX_MS = 400L;
+    public static final float STILL_SPEED = 0.3F;
+    private static final long SPEED_EASE_MS = 200L;
     private static final float CONTACT_ON = 0.35F;
     private static final float CONTACT_OFF = 0.25F;
+    private static final float LIFT_FROM = 0.15F;
+    private static final float LIFT_TO = 0.35F;
 
     public static final int INFO_WEIGHT = 0;
     public static final int INFO_DIST = 1;
@@ -38,7 +43,8 @@ public final class PLZGrappleIK {
     public static final int INFO_MUTUAL = 3;
     public static final int INFO_CLAMPED = 4;
     public static final int INFO_LEAN = 5;
-    private static final int INFO_FIELDS = 6;
+    public static final int INFO_LIFT = 6;
+    private static final int INFO_FIELDS = 7;
 
     private static final String[][] ARM = {
         { "bip01_l_upperarm", "bip01_l_forearm", "bip01_l_hand" },
@@ -65,8 +71,9 @@ public final class PLZGrappleIK {
     public static final int CFG_NEAR = 2;
     public static final int CFG_FAR = 3;
     public static final int CFG_GRIPS = 4;
+    public static final int CFG_POSED_HELD = 5;
 
-    private static final float[] DEFAULT_CFG = { 1.0F, 1.0F, DEFAULT_NEAR, DEFAULT_FAR, 0.0F };
+    private static final float[] DEFAULT_CFG = { 1.0F, 1.0F, DEFAULT_NEAR, DEFAULT_FAR, 0.0F, 0.0F };
 
     /** Keyed by the grappler node. near/far below zero keep the default. */
     public static void setNode(String node, boolean holder, boolean held, float near, float far) {
@@ -75,7 +82,7 @@ public final class PLZGrappleIK {
         }
         float n = near < 0.0F ? DEFAULT_NEAR : near;
         float f = far < 0.0F ? DEFAULT_FAR : far;
-        NODES.put(node.toLowerCase(Locale.ROOT), new float[] { holder ? 1.0F : 0.0F, held ? 1.0F : 0.0F, n, Math.max(f, n + 1.0E-4F), 0.0F });
+        NODES.put(node.toLowerCase(Locale.ROOT), new float[] { holder ? 1.0F : 0.0F, held ? 1.0F : 0.0F, n, Math.max(f, n + 1.0E-4F), 0.0F, 0.0F });
     }
 
     /** The held character's hands keep every contact they make, not only a hand reaching for theirs: an embrace. */
@@ -85,6 +92,16 @@ public final class PLZGrappleIK {
         }
         float[] cfg = nodeConfig(node).clone();
         cfg[CFG_GRIPS] = grips ? 1.0F : 0.0F;
+        NODES.put(node.toLowerCase(Locale.ROOT), cfg);
+    }
+
+    /** The clip was posed against the held character's real, resized body, so contacts are read against that body. */
+    public static void setPosedHeld(String node, boolean posed) {
+        if (node == null || node.isEmpty()) {
+            return;
+        }
+        float[] cfg = nodeConfig(node).clone();
+        cfg[CFG_POSED_HELD] = posed ? 1.0F : 0.0F;
         NODES.put(node.toLowerCase(Locale.ROOT), cfg);
     }
 
@@ -288,6 +305,8 @@ public final class PLZGrappleIK {
         final int[] anchorSeg = { -1, -1 };
         final float[][] info = new float[2][INFO_FIELDS];
         final String[] anchorName = new String[2];
+        float lift;
+        float speed;
 
         public void bind(Rig rig) {
             this.rig = rig;
@@ -305,6 +324,13 @@ public final class PLZGrappleIK {
         }
 
         public void captureDrawn(Matrix4f[] model, float x, float y, float z, float renderedAngle, long now) {
+            long dt = now - this.stampMs;
+            if (this.rig != null && dt > 0L && dt <= STALE_MS) {
+                float moved = (float)Math.sqrt((x - this.wx) * (x - this.wx) + (y - this.wy) * (y - this.wy));
+                this.speed += (moved * 1000.0F / dt - this.speed) * Math.min(1.0F, (float)dt / SPEED_EASE_MS);
+            } else if (dt > STALE_MS) {
+                this.speed = 0.0F;
+            }
             copy(model, this.drawnPos, this.drawnAxes, this.rig.count, false);
             this.wx = x;
             this.wy = y;
@@ -442,6 +468,11 @@ public final class PLZGrappleIK {
 
     /** {@code spacing}: tiles further apart than authored; contacts are read as if the pair stood where the clip put them. */
     public static void apply(Pose me, Pose other, float near, float far, boolean holder, boolean grips, float spacing, Matrix4f[] model, long nowMs) {
+        apply(me, other, near, far, holder, grips, spacing, false, model, nowMs);
+    }
+
+    /** {@code posedHeld}: the authored pair is the holder unresized and the held character as drawn. */
+    public static void apply(Pose me, Pose other, float near, float far, boolean holder, boolean grips, float spacing, boolean posedHeld, Matrix4f[] model, long nowMs) {
         me.clearInfo();
         Rig rig = me.rig;
         Rig otherRig = other.rig;
@@ -457,13 +488,26 @@ public final class PLZGrappleIK {
             sy = (other.wy - me.wy) / apart * spacing;
         }
 
+        float lift = posedHeld && !holder ? carryLift(me, rig, other, otherRig) : 0.0F;
+        if (lift != 0.0F) {
+            for (int i = 0; i < rig.count; i++) {
+                model[i].m13 += lift;
+            }
+        }
+        me.lift = lift;
+        me.info[0][INFO_LIFT] = lift;
+        me.info[1][INFO_LIFT] = lift;
+
+        float[] myRef = posedHeld && !holder ? me.drawnPos : me.vanPos;
+        float[] otherRef = posedHeld && holder ? other.drawnPos : other.vanPos;
+        float[] otherRefAxes = posedHeld && holder ? other.drawnAxes : other.vanAxes;
         float[][] goals = new float[2][];
         float[][] contactGoals = new float[2][];
         float contactWeight = 0.0F;
         float[] v = new float[3];
         float[] mapped = me.mappedScratch(otherRig.count);
         for (int i = 0; i < otherRig.count; i++) {
-            load(other.vanPos, i, v);
+            load(otherRef, i, v);
             carry(other, me, v, -sx, -sy);
             mapped[i * 3] = v[0];
             mapped[i * 3 + 1] = v[1];
@@ -483,7 +527,7 @@ public final class PLZGrappleIK {
             float keptT = 0.0F;
             int kept = me.anchorSeg[side];
             for (int h : rig.handGroup[side]) {
-                load(me.vanPos, h, v);
+                load(myRef, h, v);
                 for (int j = 0; j < otherRig.count; j++) {
                     if (!otherRig.segment[j]) {
                         continue;
@@ -533,22 +577,23 @@ public final class PLZGrappleIK {
             }
 
             int wrist = rig.arm[side][2];
-            load(me.vanPos, wrist, v);
+            load(myRef, wrist, v);
             carry(me, other, v, sx, sy);
-            lerp(other.vanPos, pj, bestSeg, bestT, a);
+            lerp(otherRef, pj, bestSeg, bestT, a);
             float dx = v[0] - a[0];
             float dy = v[1] - a[1];
             float dz = v[2] - a[2];
             int ax = pj * 9;
-            float lx = dx * other.vanAxes[ax] + dy * other.vanAxes[ax + 1] + dz * other.vanAxes[ax + 2];
-            float ly = dx * other.vanAxes[ax + 3] + dy * other.vanAxes[ax + 4] + dz * other.vanAxes[ax + 5];
-            float lz = dx * other.vanAxes[ax + 6] + dy * other.vanAxes[ax + 7] + dz * other.vanAxes[ax + 8];
+            float lx = dx * otherRefAxes[ax] + dy * otherRefAxes[ax + 1] + dz * otherRefAxes[ax + 2];
+            float ly = dx * otherRefAxes[ax + 3] + dy * otherRefAxes[ax + 4] + dz * otherRefAxes[ax + 5];
+            float lz = dx * otherRefAxes[ax + 6] + dy * otherRefAxes[ax + 7] + dz * otherRefAxes[ax + 8];
 
             lerp(other.drawnPos, pj, bestSeg, bestT, a);
             float[] da = other.drawnAxes;
             a[0] += lx * da[ax] + ly * da[ax + 3] + lz * da[ax + 6];
             a[1] += lx * da[ax + 1] + ly * da[ax + 4] + lz * da[ax + 7];
             a[2] += lx * da[ax + 2] + ly * da[ax + 5] + lz * da[ax + 8];
+            a[1] += holder ? other.lift : 0.0F;
             carry(other, me, a);
 
             float share = mutual ? mutualShare(me, other, rig, side, otherRig, theirSide, b) : 1.0F;
@@ -565,7 +610,7 @@ public final class PLZGrappleIK {
             contactWeight = Math.max(contactWeight, weight);
         }
 
-        steadyLean(me, leanNeeded(model, rig, contactGoals), contactWeight, nowMs);
+        steadyLean(me, leanNeeded(model, rig, contactGoals), contactWeight, nowMs, me.speed < STILL_SPEED);
         applyLean(model, rig, me.leanApplied);
         float lean = me.leanAngle();
         for (int side = 0; side < 2; side++) {
@@ -575,6 +620,24 @@ public final class PLZGrappleIK {
                 me.info[side][INFO_CLAMPED] = solveArm(model, rig, side, goal[0], goal[1], goal[2]) ? 1.0F : 0.0F;
             }
         }
+    }
+
+    /** How far a carried partner rides with the holder's chest as their body is resized; nothing while their feet are down. */
+    static float carryLift(Pose me, Rig rig, Pose holder, Rig holderRig) {
+        if (holderRig.spine < 0) {
+            return 0.0F;
+        }
+        float lowest = Float.MAX_VALUE;
+        for (int i = 0; i < rig.count; i++) {
+            if (rig.segment[i]) {
+                lowest = Math.min(lowest, me.drawnPos[i * 3 + 1]);
+            }
+        }
+        if (lowest == Float.MAX_VALUE) {
+            return 0.0F;
+        }
+        int at = holderRig.spine * 3 + 1;
+        return (holder.drawnPos[at] - holder.vanPos[at]) * smoothstep(LIFT_FROM, LIFT_TO, lowest);
     }
 
     /**
@@ -597,6 +660,11 @@ public final class PLZGrappleIK {
      * keeps the deepest lean asked for, eases out as they part. A pause longer than LEAN_RESET_MS starts afresh.
      */
     public static void steadyLean(Pose p, float[] need, float contactWeight, long nowMs) {
+        steadyLean(p, need, contactWeight, nowMs, false);
+    }
+
+    /** {@code relax}: standing still, a lean no longer asked for eases back down instead of being held for the whole contact. */
+    public static void steadyLean(Pose p, float[] need, float contactWeight, long nowMs, boolean relax) {
         long dt = p.leanStamp == Long.MIN_VALUE ? LEAN_RESET_MS + 1L : nowMs - p.leanStamp;
         if (dt > LEAN_RESET_MS || dt < 0L) {
             java.util.Arrays.fill(p.heldLean, 0.0F);
@@ -612,6 +680,11 @@ public final class PLZGrappleIK {
         p.leanEnvelope = Math.max(0.0F, Math.min(1.0F, p.leanEnvelope + (contact ? step : -step)));
         if (contact && len(need) > len(p.heldLean)) {
             System.arraycopy(need, 0, p.heldLean, 0, 3);
+        } else if (contact && relax) {
+            float k = Math.min(1.0F, (float)dt / LEAN_RELAX_MS);
+            for (int c = 0; c < 3; c++) {
+                p.heldLean[c] += (need[c] - p.heldLean[c]) * k;
+            }
         } else if (!contact && p.leanEnvelope <= 0.0F) {
             java.util.Arrays.fill(p.heldLean, 0.0F);
         }

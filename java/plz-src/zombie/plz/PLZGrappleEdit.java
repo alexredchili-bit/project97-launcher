@@ -415,9 +415,14 @@ public final class PLZGrappleEdit {
         }
         String ua = usernameOf(a);
         String ub = usernameOf(b);
-        float extra = bodyDepthExtra(
-            PLZBoneScale.getOverall(ua), PLZBoneScale.getAxis(ua, "torso", 2), PLZBoneScale.getAxis(ua, "belly", 2), a.isFemale(),
-            PLZBoneScale.getOverall(ub), PLZBoneScale.getAxis(ub, "torso", 2), PLZBoneScale.getAxis(ub, "belly", 2), b.isFemale());
+        boolean posed = PLZGrappleIK.nodeConfig(holder.getSharedGrappleAnimNode())[PLZGrappleIK.CFG_POSED_HELD] > 0.0F;
+        float extra = posed
+            ? bodyDepthExtra(
+                PLZBoneScale.getOverall(ua), PLZBoneScale.getAxis(ua, "torso", 2), PLZBoneScale.getAxis(ua, "belly", 2), a.isFemale(),
+                1.0F, 1.0F, 1.0F, false)
+            : bodyDepthExtra(
+                PLZBoneScale.getOverall(ua), PLZBoneScale.getAxis(ua, "torso", 2), PLZBoneScale.getAxis(ua, "belly", 2), a.isFemale(),
+                PLZBoneScale.getOverall(ub), PLZBoneScale.getAxis(ub, "torso", 2), PLZBoneScale.getAxis(ub, "belly", 2), b.isFemale());
         return extra * MODEL_TO_TILES * e.spacing;
     }
 
