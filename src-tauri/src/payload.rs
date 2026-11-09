@@ -19,6 +19,13 @@ pub struct PayloadFile {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentInfo {
+    pub jar: String,
+    #[serde(default)]
+    pub native: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerInfo {
     pub host: String,
     #[serde(rename = "connectPort")]
@@ -56,6 +63,8 @@ pub struct Manifest {
     pub files: Vec<PayloadFile>,
     #[serde(rename = "serverFiles", default)]
     pub server_files: Vec<PayloadFile>,
+    #[serde(default)]
+    pub agent: Option<AgentInfo>,
 
     #[serde(default)]
     pub mods: Vec<crate::workshop::ModEntry>,
@@ -69,6 +78,9 @@ pub struct Manifest {
     pub news_url: String,
     #[serde(default)]
     pub links: Links,
+    /// Workshop items a tester build copies into its own profile so they outrank a live subscription with the same mod IDs.
+    #[serde(rename = "pinnedMods", default)]
+    pub pinned_mods: Vec<String>,
 
     /// Optional override for the launcher's Performance mode preset, as raw options.ini
     /// key/value pairs. Absent or empty means the launcher uses its baked profile, so every
@@ -268,7 +280,7 @@ pub async fn fetch_manifest() -> Result<Manifest> {
     let bytes = fetch(&url).await?;
     let sig_bytes = fetch(&format!("{url}.sig")).await?;
 
-    let key_raw: [u8; 32] = hex::decode(PUBLIC_KEY_HEX)
+    let key_raw: [u8; 32] = hex::decode(config::PRERELEASE_KEY_HEX.unwrap_or(PUBLIC_KEY_HEX))
         .map_err(|e| Error::Other(format!("bad embedded public key: {e}")))?
         .try_into()
         .map_err(|_| Error::Other("embedded public key is not 32 bytes".into()))?;

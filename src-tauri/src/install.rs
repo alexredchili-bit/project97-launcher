@@ -152,6 +152,10 @@ pub fn find_install(explicit: Option<&Path>) -> Result<PathBuf> {
 }
 
 pub fn steam_launch_options() -> Option<String> {
+    // Steam's launch options never reach a game the launcher starts itself.
+    if crate::launch::side_by_side() {
+        return None;
+    }
     let root = steam_root()?;
     let userdata = root.join("userdata");
     let entries = fs::read_dir(&userdata).ok()?;

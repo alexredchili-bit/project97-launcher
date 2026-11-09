@@ -746,8 +746,8 @@ public final class PLZBoneScale {
             if (!(model instanceof zombie.core.skinnedmodel.advancedanimation.AnimatedModel animated)) {
                 return false;
             }
-            animated.getAnimationPlayer().plzSetPreviewKey(key);
-            animated.getAnimationPlayer().plzSetPreviewFemale(animated.isFemale());
+            ((zombie.plz.access.PLZAnimationPlayerAccess) (Object) animated.getAnimationPlayer()).plzSetPreviewKey(key);
+            ((zombie.plz.access.PLZAnimationPlayerAccess) (Object) animated.getAnimationPlayer()).plzSetPreviewFemale(animated.isFemale());
             return true;
         } catch (ReflectiveOperationException | RuntimeException e) {
             return false;

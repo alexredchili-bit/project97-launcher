@@ -99,10 +99,10 @@ end
 local CONNECT_ARGS = nil
 ConnectToServer = { instance = {} }
 ConnectToServer.instance.connect = function(self, prev, name, user, pwd, ip, localIp, port, spwd, relay, hash, auth)
-    CONNECT_ARGS = { name = name, user = user, pwd = pwd, ip = ip, port = port,
+    CONNECT_ARGS = { prev = prev, name = name, user = user, pwd = pwd, ip = ip, port = port,
                      spwd = spwd, relay = relay, hash = hash, auth = auth }
 end
-MainScreen = { instance = {} }
+MainScreen = { instance = { bottomPanel = { stub = "bottomPanel" } } }
 
 local TRANSLATIONS = {}
 function getText(key, a)
@@ -589,8 +589,9 @@ local function join()
     getCore():setNoSave(false)
 
     ConnectToServer.instance.loadingBackground = server:getServerLoadingScreen()
+    -- connect() hides the screen it is given; hiding MainScreen itself hides its Server Workshop Items child, Install button and all.
     ConnectToServer.instance:connect(
-        MainScreen.instance,
+        MainScreen.instance.bottomPanel,
         server:getName(),
         account:getUserName(),
         account:getPwd(),
@@ -670,6 +671,7 @@ CONNECT_ARGS = nil
 RELOAD()
 enterMenu()
 check("connected", CONNECT_ARGS ~= nil, true)
+check("connect hides the menu panel, not MainScreen", CONNECT_ARGS.prev == MainScreen.instance.bottomPanel, true)
 if CONNECT_ARGS then
     check("  ip", CONNECT_ARGS.ip, "167.114.174.186")
     check("  port is a string", type(CONNECT_ARGS.port), "string")

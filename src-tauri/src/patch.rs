@@ -4,6 +4,7 @@ use crate::error::{Error, Result};
 use crate::install;
 use crate::jvmpath;
 use crate::launch;
+use crate::payload::AgentInfo;
 use crate::session_log;
 use crate::state::{self, ActivePatch, State};
 use crate::workshop_override;
@@ -15,6 +16,44 @@ const PROP_STAMP: &str = "-Dplz.stampFile=";
 const PROP_BUILD: &str = "-Dplz.build=";
 const PROP_WORKSHOP_STATE: &str = "-Dplz.workshopStateFile=";
 const PROP_WORKSHOP_SESSION: &str = "-Dplz.workshopSession=";
+const AGENT_FLAG: &str = "-javaagent:";
+const NATIVE_FLAG: &str = "-agentpath:";
+const AGENT_JAR_NAME: &str = "plz-agent.jar";
+const NATIVE_NAME: &str = "plz-native.dll";
+
+fn is_our_agent_arg(arg: &str) -> bool {
+    (arg.starts_with(AGENT_FLAG) && arg.ends_with(AGENT_JAR_NAME))
+        || (arg.starts_with(NATIVE_FLAG) && arg.ends_with(NATIVE_NAME))
+}
+
+fn payload_path(build: u64, rel: &str) -> std::path::PathBuf {
+    rel.split('/')
+        .fold(config::patch_dir(build), |dir, part| dir.join(part))
+}
+
+/// The JVM loads agents in command-line order, and the native helper has to be in memory
+/// before the Java agent asks for instrument.dll.
+fn agent_args(build: u64, agent: Option<&AgentInfo>) -> Result<Vec<String>> {
+    let Some(agent) = agent else {
+        return Ok(Vec::new());
+    };
+    let mut args = Vec::new();
+    if cfg!(windows) {
+        if let Some(native) = agent.native.as_deref() {
+            let path = payload_path(build, native);
+            if !path.is_file() {
+                return Err(Error::Other(format!("the patch is missing {native}; sync again")));
+            }
+            args.push(format!("{NATIVE_FLAG}{}", jvmpath::for_jvm(&path)?));
+        }
+    }
+    let jar = payload_path(build, &agent.jar);
+    if !jar.is_file() {
+        return Err(Error::Other(format!("the patch is missing {}; sync again", agent.jar)));
+    }
+    args.push(format!("{AGENT_FLAG}{}", jvmpath::for_jvm(&jar)?));
+    Ok(args)
+}
 
 /// Steam's shipped default across the client, dedicated server and Linux copies alike.
 pub const DEFAULT_HEAP_MB: u32 = 3072;
@@ -181,17 +220,19 @@ fn strip_our_entries(json: &mut Value, patch_marker: &str) {
                         && !s.starts_with(PROP_BUILD)
                         && !s.starts_with(PROP_WORKSHOP_STATE)
                         && !s.starts_with(PROP_WORKSHOP_SESSION)
+                        && !is_our_agent_arg(s)
                 })
                 .unwrap_or(true)
         });
     }
 }
 
-pub fn apply(st: &mut State, install_dir: &Path, build: u64) -> Result<()> {
+pub fn apply(st: &mut State, install_dir: &Path, build: u64, agent: Option<&AgentInfo>) -> Result<()> {
     repair(st)?;
 
     #[cfg(target_os = "macos")]
     {
+        let _ = agent;
         let installed = install_payload(install_dir, build)?;
         st.active_patch = Some(ActivePatch {
             json_path: None,
@@ -212,6 +253,7 @@ pub fn apply(st: &mut State, install_dir: &Path, build: u64) -> Result<()> {
     // this launch, and unwinding a half-applied patch is worse than never starting one.
     let patch_str = jvmpath::for_jvm(&config::patch_dir(build))?;
     let stamp = jvmpath::for_jvm(&config::stamp_path())?;
+    let agent_vm_args = agent_args(build, agent)?;
     if !config::app_dir().to_string_lossy().is_ascii() {
         session_log::log(
             "patch",
@@ -234,7 +276,7 @@ pub fn apply(st: &mut State, install_dir: &Path, build: u64) -> Result<()> {
     // session's restore could not run, and banking it as-is would make the leftovers
     // permanent -- every restore after it would put them back. Bank the cleaned form.
     let untouched = json.clone();
-    strip_our_entries(&mut json, config::APP_DIR_NAME);
+    strip_our_entries(&mut json, config::PATCH_MARKER);
     strip_our_entries(&mut json, config::LEGACY_APP_DIR_NAME);
     let original_bytes = if json == untouched {
         original_bytes
@@ -280,6 +322,9 @@ pub fn apply(st: &mut State, install_dir: &Path, build: u64) -> Result<()> {
         .get_mut("vmArgs")
         .and_then(Value::as_array_mut)
         .ok_or_else(|| Error::MalformedJson("no vmArgs array".into()))?;
+    for (i, arg) in agent_vm_args.into_iter().enumerate() {
+        vm.insert(i, Value::String(arg));
+    }
     vm.push(Value::String(format!("{PROP_STAMP}{stamp}")));
     vm.push(Value::String(format!("{PROP_BUILD}{build}")));
     if let Some(receipt) = workshop_receipt {
@@ -401,7 +446,7 @@ mod repair_tests {
         )
         .unwrap();
         let untouched = json.clone();
-        strip_our_entries(&mut json, config::APP_DIR_NAME);
+        strip_our_entries(&mut json, config::PATCH_MARKER);
         strip_our_entries(&mut json, config::LEGACY_APP_DIR_NAME);
 
         assert_ne!(json, untouched, "a patched json must not be banked as-is");
@@ -409,9 +454,38 @@ mod repair_tests {
         assert_eq!(json["vmArgs"].as_array().unwrap(), &vec![Value::from("-Xmx8192m")]);
 
         let clean = json.clone();
-        strip_our_entries(&mut json, config::APP_DIR_NAME);
+        strip_our_entries(&mut json, config::PATCH_MARKER);
         strip_our_entries(&mut json, config::LEGACY_APP_DIR_NAME);
         assert_eq!(json, clean, "a clean json is banked byte for byte");
+    }
+
+    #[test]
+    fn stripping_drops_our_agent_args_from_either_channel_but_no_one_elses() {
+        let mut json: Value = serde_json::from_str(
+            r#"{
+                "classpath": ["C:/x/Project97Launcher-Prerelease/patch/9001", "zombie.jar"],
+                "vmArgs": [
+                    "-agentpath:C:/x/PROJEC~1/patch/9001/agent/plz-native.dll",
+                    "-javaagent:C:/x/Project97Launcher/patch/9001/agent/plz-agent.jar",
+                    "-agentlib:zbNative=policy=allow-all",
+                    "-javaagent:C:/mods/storm.jar",
+                    "-Xmx8192m"
+                ]
+            }"#,
+        )
+        .unwrap();
+        strip_our_entries(&mut json, config::PATCH_MARKER);
+        strip_our_entries(&mut json, config::LEGACY_APP_DIR_NAME);
+
+        assert_eq!(json["classpath"].as_array().unwrap(), &vec![Value::from("zombie.jar")]);
+        assert_eq!(
+            json["vmArgs"].as_array().unwrap(),
+            &vec![
+                Value::from("-agentlib:zbNative=policy=allow-all"),
+                Value::from("-javaagent:C:/mods/storm.jar"),
+                Value::from("-Xmx8192m"),
+            ]
+        );
     }
 }
 

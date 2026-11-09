@@ -787,7 +787,7 @@ pub async fn run_play(
     st.save()?;
 
     progress("patch", "Patching the launch configuration");
-    patch::apply(&mut st, &install_dir, m.build)?;
+    patch::apply(&mut st, &install_dir, m.build, m.agent.as_ref())?;
 
     let outcome = (|| -> Result<std::result::Result<patch::Stamp, NoStamp>> {
         progress("account", "Preparing your Steam-bound game account");
@@ -803,6 +803,11 @@ pub async fn run_play(
             &workshop_note,
         )?;
 
+        if launch::side_by_side() && !m.pinned_mods.is_empty() {
+            progress("mods", "Pinning the pre-release mods");
+            workshop::pin_into_profile(&m.pinned_mods)?;
+        }
+
         progress(
             "launch",
             if launch_debug {
@@ -811,7 +816,7 @@ pub async fn run_play(
                 "Starting Project Zomboid through Steam"
             },
         );
-        launch::launch(&steam, debug_args)?;
+        launch::launch(&steam, &install_dir, debug_args)?;
         let mut watch = launch::SessionWatch::started_now();
         launch::wait_for_start(120)?;
         session_log::log("launch", "a game process exists");
@@ -1352,6 +1357,9 @@ pub fn run() {
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
                 apply_height_bounds(&window, None);
+                if config::PRERELEASE {
+                    let _ = window.set_title("Project '97 Launcher (PRE-RELEASE)");
+                }
             }
             Ok(())
         })

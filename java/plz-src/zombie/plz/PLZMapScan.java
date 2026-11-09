@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,7 +33,6 @@ import zombie.iso.sprite.IsoSpriteGrid;
 import zombie.network.GameServer;
 import zombie.network.ServerMap;
 import zombie.scripting.entity.GameEntityScript;
-import zombie.util.list.PZArrayList;
 
 public final class PLZMapScan {
     private PLZMapScan() {
@@ -493,7 +493,7 @@ public final class PLZMapScan {
                         continue;
                     }
 
-                    PZArrayList<IsoObject> objects = square.getObjects();
+                    List<IsoObject> objects = square.getObjects();
                     for (int i = 0; i < objects.size(); i++) {
                         IsoObject obj = objects.get(i);
                         if (obj == null) {

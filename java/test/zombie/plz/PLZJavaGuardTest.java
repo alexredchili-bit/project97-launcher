@@ -47,6 +47,12 @@ public class PLZJavaGuardTest {
         return out;
     }
 
+    static List<String> ownOptions(Path ownRoot, String... args) {
+        List<String> out = new ArrayList<>();
+        PLZJavaGuard.scanJvmOptions(Arrays.asList(args), ownRoot, out);
+        return out;
+    }
+
     static ByteBuffer wire(int magic, int version, int count, String... findings) {
         ByteBuffer bb = ByteBuffer.allocate(4096);
         bb.putInt(magic);
@@ -145,6 +151,21 @@ public class PLZJavaGuardTest {
         check("a class loader", options("-Djava.system.class.loader=foo.Bar"),
             "[JVM option -Djava.system.class.loader foo.Bar]");
         check("the same one twice", options("-javaagent:a.jar", "-javaagent:a.jar").size(), 1);
+
+        System.out.println("[8b] our own agent in our own patch folder");
+        Path ownAgent = touch(patch, "agent/plz-agent.jar");
+        Path ownNative = touch(patch, "agent/plz-native.dll");
+        Path elsewhere = touch(tmp, "other/agent/plz-agent.jar");
+        Path realPatch = patch.toRealPath();
+        check("our agent and native helper", ownOptions(realPatch, "-agentpath:" + ownNative, "-javaagent:" + ownAgent), "[]");
+        check("our agent beside a foreign one", ownOptions(realPatch, "-javaagent:" + ownAgent, "-javaagent:C:\\mods\\storm.jar"),
+            "[JVM option -javaagent storm.jar]");
+        check("the same name outside our folder", ownOptions(realPatch, "-javaagent:" + elsewhere), "[JVM option -javaagent plz-agent.jar]");
+        check("our jar under -agentpath", ownOptions(realPatch, "-agentpath:" + ownAgent), "[JVM option -agentpath plz-agent.jar]");
+        check("no patch folder known", ownOptions(null, "-javaagent:" + ownAgent), "[JVM option -javaagent plz-agent.jar]");
+        check("our agent given arguments", ownOptions(realPatch, "-javaagent:" + ownAgent + "=x"), "[]");
+        Files.delete(ownNative);
+        check("a native helper we did not ship", ownOptions(realPatch, "-agentpath:" + ownNative), "[JVM option -agentpath plz-native.dll]");
 
         System.out.println("[9] what goes on the wire is bounded");
         List<String> many = new ArrayList<>();

@@ -1,0 +1,21 @@
+{
+    "required": true,
+    "minVersion": "0.8.7",
+    "package": "plz.mixin",
+    "compatibilityLevel": "JAVA_25",
+    "plugin": "plz.agent.PLZMixinPlugin",
+    "mixinextras": {
+        "minVersion": "0.5.4"
+    },
+    "mixins": [
+        "server.ChatBaseMixin",
+        "J2SEPlatformMixin",
+        "server.PlaySoundPacketMixin"
+    ],
+    "injectors": {
+        "defaultRequire": 1
+    },
+    "overwrites": {
+        "requireAnnotations": true
+    }
+}

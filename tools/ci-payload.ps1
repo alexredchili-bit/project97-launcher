@@ -35,8 +35,10 @@ function Get-DistHashes([string]$dir) {
     $map = @{}
     if (-not (Test-Path -LiteralPath $dir)) { return $map }
     $full = (Resolve-Path $dir).Path
-    foreach ($f in Get-ChildItem -Recurse -File -Path $full -Filter "*.class") {
-        $map[($f.FullName.Substring($full.Length + 1) -replace '\\', '/')] = Get-Sha $f.FullName
+    foreach ($f in Get-ChildItem -Recurse -File -Path $full) {
+        $rel = $f.FullName.Substring($full.Length + 1) -replace '\\', '/'
+        if ($rel -in @("built-against.json", "provenance.json", "payload-sha256sums.txt")) { continue }
+        $map[$rel] = Get-Sha $f.FullName
     }
     return $map
 }
@@ -159,7 +161,7 @@ try {
     }
     Write-Utf8NoBom (Join-Path $distDir "provenance.json") (($provenance | ConvertTo-Json) + "`n")
 
-    "Payload  : $($after.Count) class file(s) from CI, jar $($meta.builtAgainst.jarSha256)"
+    "Payload  : $($after.Count) file(s) from CI, jar $($meta.builtAgainst.jarSha256)"
     "JDK      : $($meta.jdk)"
     if ($before.Count -gt 0) {
         $differs = @($after.Keys | Where-Object { $before.ContainsKey($_) -and $before[$_] -ne $after[$_] })

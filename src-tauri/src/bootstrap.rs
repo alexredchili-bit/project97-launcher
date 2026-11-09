@@ -413,8 +413,9 @@ local function join()
     getCore():setNoSave(false)
 
     ConnectToServer.instance.loadingBackground = server:getServerLoadingScreen()
+    -- connect() hides the screen it is given; hiding MainScreen itself hides its Server Workshop Items child, Install button and all.
     ConnectToServer.instance:connect(
-        MainScreen.instance,
+        MainScreen.instance.bottomPanel,
         server:getName(),
         account:getUserName(),
         account:getPwd(),

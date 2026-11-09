@@ -14,6 +14,7 @@ import zombie.core.opengl.ShaderProgram;
 import zombie.core.opengl.VBORenderer;
 import zombie.core.skinnedmodel.model.VertexBufferObject;
 import zombie.core.textures.Texture;
+import zombie.plz.access.PLZVBORendererAccess;
 
 /**
  * Rain and snow drawn as one packed cell repeated per screen cell.
@@ -67,7 +68,7 @@ public final class PLZRainTiles {
             }
 
             VBORenderer vbor = VBORenderer.getInstance();
-            ShaderProgram program = vbor.plzShaderPositionColorUv().getProgram();
+            ShaderProgram program = ((PLZVBORendererAccess) (Object) vbor).plzShaderPositionColorUv().getProgram();
             if (program == null || !program.isCompiled()) {
                 return;
             }

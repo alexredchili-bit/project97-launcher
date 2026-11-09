@@ -88,7 +88,14 @@ pub const DEBUG_ARG: &str = "-debug";
 
 // Anything after the app id is handed on to the game by Steam, and lands on top of whatever
 // the player has in Properties > Launch Options rather than replacing it.
-pub fn launch(steam_exe: &Path, extra_args: &[&str]) -> Result<()> {
+pub fn side_by_side() -> bool {
+    cfg!(windows) && config::PRERELEASE
+}
+
+pub fn launch(steam_exe: &Path, install_dir: &Path, extra_args: &[&str]) -> Result<()> {
+    if side_by_side() {
+        return launch_side_by_side(steam_exe, install_dir, extra_args);
+    }
     let mut cmd = Command::new(steam_exe);
     cmd.arg("-applaunch").arg(config::STEAM_APP_ID);
     cmd.args(extra_args);
@@ -100,6 +107,61 @@ pub fn launch(steam_exe: &Path, extra_args: &[&str]) -> Result<()> {
         ))
     })?;
     Ok(())
+}
+
+// -applaunch always runs Steam's own copy, so a tester build starts the chosen install itself,
+// with its own profile folder so a pre-release run never touches the player's saves or mods.
+fn launch_side_by_side(steam_exe: &Path, install_dir: &Path, extra_args: &[&str]) -> Result<()> {
+    if !steam_running() {
+        let mut steam = Command::new(steam_exe);
+        steam.arg("-silent");
+        steam.spawn().map_err(|e| {
+            Error::Io(format!("could not start Steam ({}): {e}", steam_exe.display()))
+        })?;
+        let started = Instant::now();
+        while !steam_running() && started.elapsed() < Duration::from_secs(60) {
+            std::thread::sleep(Duration::from_millis(500));
+        }
+        // The game's SteamAPI_Init fails against a client that is still signing in.
+        std::thread::sleep(Duration::from_secs(10));
+    }
+
+    let home = config::zomboid_home();
+    std::fs::create_dir_all(&home)?;
+    // Without this marker a fresh profile's first boot empties default.txt, dropping the launcher mod.
+    let reset_marker = home.join("mods").join("reset-mods-42_00.txt");
+    if !reset_marker.is_file() {
+        std::fs::create_dir_all(home.join("mods"))?;
+        std::fs::write(
+            &reset_marker,
+            "If this file does not exist, default.txt will be reset to empty (no mods active).",
+        )?;
+    }
+    let options = config::options_ini_path();
+    let main_options = config::main_zomboid_home().join("options.ini");
+    if !options.is_file() && main_options.is_file() {
+        let _ = std::fs::copy(&main_options, &options);
+    }
+
+    let dir = crate::install::game_dir(install_dir);
+    let exe = dir.join(GAME_EXE);
+    let mut cmd = Command::new(&exe);
+    cmd.current_dir(&dir)
+        .arg(format!("-cachedir={}", home.display()))
+        .args(extra_args);
+    no_window(&mut cmd);
+    cmd.spawn().map_err(|e| Error::Io(format!("could not start {}: {e}", exe.display())))?;
+    Ok(())
+}
+
+#[cfg(windows)]
+fn steam_running() -> bool {
+    process_running("steam.exe")
+}
+
+#[cfg(not(windows))]
+fn steam_running() -> bool {
+    true
 }
 
 pub fn wait_for_start(timeout_secs: u64) -> Result<()> {

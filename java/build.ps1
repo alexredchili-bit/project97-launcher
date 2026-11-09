@@ -1,7 +1,9 @@
 param(
     [string]$PzInstallDir = $env:PZ_INSTALL_DIR,
     [string]$JavacPath = $env:JAVAC_PATH,
-    [int]$Build = 1
+    [int]$Build = 1,
+    [string]$AgentSrc = $env:PLZ_JAVA_AGENT_SRC,
+    [string]$NativeDll = $env:PLZ_NATIVE_DLL
 )
 
 $ErrorActionPreference = "Stop"
@@ -280,12 +282,35 @@ if ($serverFiles.Count -eq 0) { throw "no server classes produced; the server pa
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $inJar = @{}
+$jarPackages = @{}
 $jarZip = [System.IO.Compression.ZipFile]::OpenRead($pzJar)
 try {
     foreach ($e in $jarZip.Entries) {
-        if ($e.FullName.EndsWith(".class")) { $inJar[$e.FullName -replace '\.class$', ''] = $true }
+        if ($e.FullName.EndsWith(".class")) {
+            $name = $e.FullName -replace '\.class$', ''
+            $inJar[$name] = $true
+            if ($name.Contains("/")) { $jarPackages[$name.Substring(0, $name.LastIndexOf("/"))] = $true }
+        }
     }
 } finally { $jarZip.Dispose() }
+$intruders = @($produced.Keys | Where-Object { $_.Contains("/") -and $jarPackages.ContainsKey($_.Substring(0, $_.LastIndexOf("/"))) -and -not $inJar.ContainsKey($_) } | Sort-Object)
+if ($intruders.Count -gt 0) {
+    throw @"
+$($intruders.Count) payload class(es) sit in a package of the game jar. From 42.22.1 the jar is signed, and the
+JVM refuses an unsigned class in a signed package (SecurityException at first use). Move them to zombie.plz:
+
+$(($intruders | ForEach-Object { "    $_" }) -join "`n")
+"@
+}
+$shadows = @($produced.Keys | Where-Object { $inJar.ContainsKey($_) } | Sort-Object)
+if ($shadows.Count -gt 0) {
+    throw @"
+$($shadows.Count) payload class(es) replace a class of the game jar. Game classes are changed only by
+mixins in the agent (RPMods java-agent, or java/agent-src here), never shipped as copies:
+
+$(($shadows | ForEach-Object { "    $_" }) -join "`n")
+"@
+}
 $patchOnly = @($produced.Keys | Where-Object { -not $inJar.ContainsKey($_) } | Sort-Object Length -Descending)
 if ($patchOnly.Count -gt 0) {
     $refRegex = [regex]('(' + (($patchOnly | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')(?![A-Za-z0-9_])')
@@ -315,12 +340,77 @@ Add each dependency to that side's list in java/payload.json.
     }
 }
 
+if (-not $AgentSrc -and $payload.agent) {
+    $AgentSrc = Join-Path $PSScriptRoot $payload.agent.root
+    $from = Join-Path $PSScriptRoot $payload.agent.mirrorFrom
+    if ($payload.agent.mirrorFrom -and (Test-Path $from -PathType Container)) {
+        $from = (Resolve-Path $from).Path
+        New-Item -ItemType Directory -Force $AgentSrc | Out-Null
+        $agentRoot = (Resolve-Path $AgentSrc).Path
+        $wanted = @{}
+        foreach ($rel in @($payload.agent.files)) {
+            $relPath = $rel -replace '/', [System.IO.Path]::DirectorySeparatorChar
+            if (Test-Path -LiteralPath (Join-Path $from $relPath) -PathType Leaf) { $wanted[$relPath] = $true }
+        }
+        foreach ($dir in @($payload.agent.trees)) {
+            $base = Join-Path $from ($dir -replace '/', [System.IO.Path]::DirectorySeparatorChar)
+            if (Test-Path -LiteralPath $base -PathType Container) {
+                foreach ($f in Get-ChildItem -Recurse -File -LiteralPath $base) { $wanted[$f.FullName.Substring($from.Length + 1)] = $true }
+            }
+        }
+        $changed = @()
+        foreach ($rel in $wanted.Keys) {
+            $src = Join-Path $from $rel
+            $dest = Join-Path $agentRoot $rel
+            if (-not (Test-Path -LiteralPath $dest) -or (Get-FileHash -LiteralPath $src).Hash -ne (Get-FileHash -LiteralPath $dest).Hash) {
+                New-Item -ItemType Directory -Force (Split-Path $dest) | Out-Null
+                Copy-Item -LiteralPath $src -Destination $dest -Force
+                $changed += $rel
+            }
+        }
+        foreach ($f in Get-ChildItem -Recurse -File -LiteralPath $agentRoot) {
+            $rel = $f.FullName.Substring($agentRoot.Length + 1)
+            if ($rel -match '^(dist|lib)[\\/]') { continue }
+            if (-not $wanted.ContainsKey($rel)) {
+                Remove-Item -LiteralPath $f.FullName -Force
+                $changed += "removed $rel"
+            }
+        }
+        if ($changed.Count -gt 0) {
+            "Mirror  : agent  refreshed $($changed.Count) file(s) from $from"
+            "          Commit these: the mirror is what a clone without ProjectLifeZoid builds."
+        }
+    }
+}
+
+$agent = $null
+if ($AgentSrc) {
+    $agentBuild = Join-Path $AgentSrc "build.ps1"
+    if (-not (Test-Path -LiteralPath $agentBuild)) { throw "no build.ps1 in -AgentSrc $AgentSrc" }
+    $agentArgs = @{ PzJar = $pzJar; ShadowDist = $outDir; ExtraSrc = (Join-Path $PSScriptRoot "agent-src") }
+    if ($NativeDll) { $agentArgs.NativeDll = $NativeDll }
+    & $agentBuild @agentArgs | ForEach-Object { "Agent   : $_" }
+    $agentDist = Join-Path $AgentSrc "dist"
+    $agentOut = Join-Path $outDir "agent"
+    New-Item -ItemType Directory -Force (Join-Path $agentOut "lib") | Out-Null
+    Copy-Item -LiteralPath (Join-Path $agentDist "plz-agent.jar") -Destination $agentOut
+    Copy-Item -LiteralPath (Join-Path $agentDist "plz-native.dll") -Destination $agentOut
+    $agentLibs = @(Get-ChildItem -LiteralPath (Join-Path $agentDist "lib") -Filter "*.jar" | Sort-Object Name | ForEach-Object {
+            Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $agentOut "lib")
+            "agent/lib/$($_.Name)"
+        })
+    if ($agentLibs.Count -eq 0) { throw "the agent build produced no library jars" }
+    $clientFiles += @("agent/plz-agent.jar", "agent/plz-native.dll") + $agentLibs
+    $serverFiles += @("agent/plz-agent.jar") + $agentLibs
+    $agent = [ordered]@{ jar = "agent/plz-agent.jar"; native = "agent/plz-native.dll" }
+}
+
 $sourceCommit = ""
 $sourceDirty = 0
 try {
     Push-Location $PSScriptRoot
     $sourceCommit = (& git rev-parse HEAD 2>$null | Out-String).Trim()
-    $sourceDirty = @(& git status --porcelain -- "src" "plz-src" "payload.json").Count
+    $sourceDirty = @(& git status --porcelain -- "src" "plz-src" "agent-src" "plz-agent" "payload.json").Count
 } catch { } finally { Pop-Location }
 
 $meta = [ordered]@{
@@ -341,6 +431,7 @@ $meta = [ordered]@{
     client             = $clientFiles
     server             = $serverFiles
 }
+if ($agent) { $meta.agent = $agent }
 Write-Utf8NoBom (Join-Path $outDir "built-against.json") (($meta | ConvertTo-Json -Depth 6) + "`n")
 
 "OK      : $($classes.Count) .class files -> $outDir"

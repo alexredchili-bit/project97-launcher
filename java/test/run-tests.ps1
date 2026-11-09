@@ -39,11 +39,12 @@ New-Item -ItemType Directory -Force $out | Out-Null
 ""
 
 $sources = @(
-    (Join-Path $src "zombie\network\PLZQueue.java"),
-    (Join-Path $src "zombie\network\PLZSlots.java"),
-    (Join-Path $src "zombie\network\PLZAccounts.java"),
-    (Join-Path $src "zombie\network\LoginQueue.java"),
-    (Join-Path $src "zombie\network\PLZJavaGate.java"),
+    (Join-Path $src "zombie\plz\PLZQueue.java"),
+    (Join-Path $src "zombie\plz\PLZSlots.java"),
+    (Join-Path $src "zombie\plz\PLZAccounts.java"),
+    (Join-Path $src "zombie\plz\PLZLoginQueue.java"),
+    (Join-Path $src "zombie\plz\PLZJavaGate.java"),
+    (Join-Path $src "zombie\plz\access\PLZServerWorldDatabaseAccess.java"),
     (Join-Path $src "zombie\plz\PLZJavaGuard.java"),
     (Join-Path $src "zombie\plz\PLZPayloadIndex.java")
 ) + @(Get-ChildItem -Recurse -Path $PSScriptRoot -Filter "*.java" | ForEach-Object { $_.FullName })
@@ -59,8 +60,8 @@ if ($code -ne 0) {
 }
 
 $failed = 0
-foreach ($test in @("zombie.network.PLZQueueConfigTest", "zombie.network.PLZSlotsTest", "zombie.network.LoginQueueReleaseTest",
-        "zombie.network.PLZJavaGateTest", "zombie.plz.PLZJavaGuardTest", "zombie.network.PLZAccountsCredentialTest")) {
+foreach ($test in @("zombie.plz.PLZQueueConfigTest", "zombie.plz.PLZSlotsTest", "zombie.plz.LoginQueueReleaseTest",
+        "zombie.plz.PLZJavaGateTest", "zombie.plz.PLZJavaGuardTest", "zombie.plz.PLZAccountsCredentialTest")) {
     "=== $test ==="
     $ErrorActionPreference = "Continue"
     # -Xmx256m/SerialGC: these tests need almost no heap, and the default G1 reservation fails

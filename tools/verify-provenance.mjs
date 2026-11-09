@@ -118,11 +118,11 @@ for (const line of sumsBytes.toString("utf8").split(/\r?\n/)) {
 const seen = new Set();
 const entries = [...manifest.files, ...(manifest.serverFiles ?? [])].filter((e) => !seen.has(e.path) && seen.add(e.path));
 const bad = entries.filter((e) => attested.get(e.path) !== e.sha256);
-console.log(`classes    ${entries.length - bad.length}/${entries.length} match what CI built`);
+console.log(`files      ${entries.length - bad.length}/${entries.length} match what CI built`);
 for (const e of bad) console.log(`  NOT FROM CI  ${e.path}`);
-if (bad.length) fail("\nThe signed manifest lists class files that CI did not build. Do not trust this release.");
+if (bad.length) fail("\nThe signed manifest lists files that CI did not build. Do not trust this release.");
 
 console.log("");
-console.log("Every class the launcher installs is byte-for-byte what GitHub Actions compiled from the");
+console.log("Every file the launcher installs is byte-for-byte what GitHub Actions compiled from the");
 console.log(`public source at that commit. Read it at https://github.com/${prov.repo}/tree/${prov.commit}`);
 console.log("To check the files your launcher actually downloads match the manifest: node tools/verify-release.mjs");

@@ -19,6 +19,7 @@ import zombie.iso.PlayerCamera;
 import zombie.iso.fboRenderChunk.FBORenderCutaways;
 import zombie.iso.fboRenderChunk.FBORenderLevels;
 import zombie.iso.fboRenderChunk.ObjectRenderLayer;
+import zombie.plz.access.PLZIsoPuddlesAccess;
 
 /**
  * Packed puddle vertices, kept between frames instead of rebuilt. See java-patch/README.md.
@@ -79,7 +80,7 @@ public final class PLZPuddleCache {
     }
 
     public static void render(int playerIndex, ArrayList<IsoChunk> onScreenChunks, int maxZ) {
-        IsoPuddles puddles = IsoPuddles.getInstance();
+        PLZIsoPuddlesAccess puddles = (PLZIsoPuddlesAccess)(Object)IsoPuddles.getInstance();
         // Only player 0 advances the clock, so split screen does not age entries twice as fast.
         if (playerIndex == 0) {
             frame++;
@@ -112,7 +113,7 @@ public final class PLZPuddleCache {
         }
     }
 
-    private static void emit(IsoPuddles puddles, IsoChunk chunk, int z, int playerIndex,
+    private static void emit(PLZIsoPuddlesAccess puddles, IsoChunk chunk, int z, int playerIndex,
         float jiggleX, float jiggleY, int camChunkX, int camChunkY, boolean unlit, int lifetime) {
         if (z < chunk.minLevel || z > chunk.maxLevel) {
             return;
@@ -158,7 +159,7 @@ public final class PLZPuddleCache {
         return bits;
     }
 
-    private static void repack(IsoPuddles puddles, PLZPuddleCache.Batch batch, IsoChunk chunk, int z,
+    private static void repack(PLZIsoPuddlesAccess puddles, PLZPuddleCache.Batch batch, IsoChunk chunk, int z,
         int playerIndex, List<IsoGridSquare> squares, FBORenderCutaways.ChunkLevelData levelData,
         long cutaways, float jiggleX, float jiggleY, int camChunkX, int camChunkY, int lifetime) {
         ArrayList<IsoGridSquare> drawable = scratch;
@@ -199,7 +200,7 @@ public final class PLZPuddleCache {
         drawable.clear();
     }
 
-    private static void replay(IsoPuddles puddles, PLZPuddleCache.Batch batch, IsoChunk chunk, int z,
+    private static void replay(PLZIsoPuddlesAccess puddles, PLZPuddleCache.Batch batch, IsoChunk chunk, int z,
         int playerIndex, float jiggleX, float jiggleY, int camChunkX, int camChunkY, boolean unlit) {
         int count = batch.count;
         if (count == 0) {

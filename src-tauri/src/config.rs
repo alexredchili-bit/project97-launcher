@@ -2,8 +2,13 @@ use std::path::PathBuf;
 
 pub const MANIFEST_URL_ENV: &str = "PLZ_MANIFEST_URL";
 
+/// Baked only into tester builds: its own signing key, data folder and origin prefix, no self-update.
+pub const PRERELEASE_KEY_HEX: Option<&str> = option_env!("PLZ_PRERELEASE_PUBKEY_BAKED");
+pub const PRERELEASE: bool = PRERELEASE_KEY_HEX.is_some();
+
 pub const DEFAULT_MANIFEST_URL: &str = match option_env!("PLZ_MANIFEST_URL_BAKED") {
     Some(url) => url,
+    None if PRERELEASE => "https://files.project97.life/prerelease/manifest.json",
     None => "https://files.project97.life/release/manifest.json",
 };
 
@@ -59,7 +64,10 @@ pub fn radio_seq_guard_path() -> PathBuf {
     app_dir().join("security").join("radio-seq.json")
 }
 
-pub const APP_DIR_NAME: &str = "Project97Launcher";
+pub const APP_DIR_NAME: &str = if PRERELEASE { "Project97Launcher-Prerelease" } else { "Project97Launcher" };
+
+// Both channels' folder names contain it, so either launcher clears the other's leftover entries.
+pub const PATCH_MARKER: &str = "Project97Launcher";
 
 // The launcher this one replaces: its classpath entries still have to be recognised.
 pub const LEGACY_APP_DIR_NAME: &str = "ProjectLifeZoidLauncher";
@@ -108,7 +116,16 @@ pub fn workshop_override_active_path() -> PathBuf {
         .join("workshop-activation.properties")
 }
 
+/// The tester build runs the game with -cachedir pointing here (see launch::launch).
+pub const ZOMBOID_HOME_NAME: &str = if PRERELEASE && cfg!(windows) { "Zomboid-P97Prerelease" } else { "Zomboid" };
+
 pub fn zomboid_home() -> PathBuf {
+    dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(ZOMBOID_HOME_NAME)
+}
+
+pub fn main_zomboid_home() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("Zomboid")
@@ -121,9 +138,8 @@ pub fn server_list_db() -> PathBuf {
 /// The Tomb body opt-out, shared with the java patch.
 ///
 /// zombie.plz.PLZBodyOverride reads this exact path inside ZomboidFileSystem.loadMods.
-/// It resolves it as getCacheDir() + "/Lua", and getCacheDir() is user.home + "/Zomboid",
-/// which is what zomboid_home() is. Keep the two in step or the toggle writes a setting
-/// nothing reads.
+/// It resolves it as getCacheDir() + "/Lua", and getCacheDir() is zomboid_home() for every game
+/// this launcher starts. Keep the two in step or the toggle writes a setting nothing reads.
 pub fn body_override_path() -> PathBuf {
     zomboid_home().join("Lua").join("PLZBodyOverride.ini")
 }

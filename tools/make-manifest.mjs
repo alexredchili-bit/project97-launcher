@@ -113,11 +113,24 @@ const serverFiles = collect([...builtAgainst.server].sort());
 
 const build = Number(arg("build", builtAgainst.build ?? 1));
 
+function agentBlock(agent) {
+    const shipped = new Set(files.map((f) => f.path));
+    const block = { jar: String(agent.jar) };
+    if (agent.native) block.native = String(agent.native);
+    for (const rel of Object.values(block)) {
+        if (!shipped.has(rel)) {
+            console.error(`built-against.json names agent file ${rel} but the client payload does not ship it`);
+            process.exit(1);
+        }
+    }
+    return block;
+}
+
 function readJson(path) {
     return JSON.parse(readFileSync(path, "utf8").replace(/^﻿/, ""));
 }
 
-const serverCfg = readJson(resolve(here, "server.json"));
+const serverCfg = readJson(resolve(repo, arg("server-config", join("tools", "server.json"))));
 for (const key of ["host", "connectPort", "queryPort", "name"]) {
     if (serverCfg[key] === undefined) {
         console.error(`tools/server.json is missing "${key}"`);
@@ -177,7 +190,7 @@ function workshopUpdatedOverrides() {
 
 const updatedOverrides = workshopUpdatedOverrides();
 
-const mods = (contentCfg.mods ?? []).map((m, i) => {
+const mods = (serverCfg.mods ?? contentCfg.mods ?? []).map((m, i) => {
     const id = workshopId(m.id ?? m);
     if (!id) {
         console.error(`content.json mods[${i}]: cannot read a Workshop id from ${JSON.stringify(m.id ?? m)}`);
@@ -222,6 +235,15 @@ const collectionMods = (contentCfg.collectionMods ?? []).map((m, i) => {
     return entry;
 });
 
+const pinnedMods = (serverCfg.pinnedMods ?? []).map((raw) => {
+    const id = workshopId(raw);
+    if (!id || !mods.some((m) => m.id === id)) {
+        console.error(`server config pinnedMods names ${JSON.stringify(raw)}, which is not one of its mods`);
+        process.exit(1);
+    }
+    return id;
+});
+
 if (contentCfg.collectionMods?.length && !contentCfg.collectionId) {
     console.error("content.json lists collectionMods but no collectionId to attach them to");
     process.exit(1);
@@ -253,12 +275,14 @@ const manifest = {
     requiredServerBuild: build,
     files,
     serverFiles,
+    ...(builtAgainst.agent ? { agent: agentBlock(builtAgainst.agent) } : {}),
 
     mods,
     collectionId: String(contentCfg.collectionId ?? ""),
     collectionName: String(contentCfg.collectionName ?? ""),
     collectionMods,
     newsUrl: String(contentCfg.newsUrl ?? ""),
+    ...(pinnedMods.length ? { pinnedMods } : {}),
     links: {
         discord: String(contentCfg.links?.discord ?? ""),
         website: String(contentCfg.links?.website ?? ""),

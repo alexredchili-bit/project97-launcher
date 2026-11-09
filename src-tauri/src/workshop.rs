@@ -122,6 +122,44 @@ fn workshop_content_dirs() -> Vec<PathBuf> {
         .collect()
 }
 
+/// The game resolves a mod ID to the first copy it finds, and the profile's Workshop folder is
+/// searched before Steam's downloads, so a copy there wins over a live item with the same IDs.
+pub fn pin_into_profile(ids: &[String]) -> Result<()> {
+    let root = crate::config::zomboid_home().join("Workshop");
+    for id in ids {
+        let src = workshop_content_dirs()
+            .into_iter()
+            .map(|d| d.join(id).join("mods"))
+            .find(|p| p.is_dir())
+            .ok_or_else(|| {
+                Error::Other(format!(
+                    "The pre-release mods ({}) are not downloaded yet. Subscribe to them in Steam, wait for the download to finish, then press Play again.",
+                    item_url(id)
+                ))
+            })?;
+        let item = root.join(format!("P97Pinned-{id}"));
+        if item.exists() {
+            fs::remove_dir_all(&item)?;
+        }
+        copy_tree(&src, &item.join("Contents").join("mods"))?;
+    }
+    Ok(())
+}
+
+fn copy_tree(from: &std::path::Path, to: &std::path::Path) -> Result<()> {
+    fs::create_dir_all(to)?;
+    for entry in fs::read_dir(from)? {
+        let entry = entry?;
+        let target = to.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_tree(&entry.path(), &target)?;
+        } else {
+            fs::copy(entry.path(), &target)?;
+        }
+    }
+    Ok(())
+}
+
 fn dir_size(path: &PathBuf) -> u64 {
     let mut total = 0u64;
     let Ok(entries) = fs::read_dir(path) else {

@@ -1,6 +1,6 @@
 use crate::error::{Error, Result};
 use crate::state::State;
-use crate::{launch, patch};
+use crate::{config, launch, patch};
 use serde::Serialize;
 use tauri::AppHandle;
 use tauri_plugin_updater::UpdaterExt;
@@ -116,6 +116,14 @@ fn refuse_if_mid_session() -> Result<()> {
 
 pub async fn check(app: &AppHandle) -> Result<UpdateInfo> {
     let current = app.package_info().version.to_string();
+    if config::PRERELEASE {
+        return Ok(UpdateInfo {
+            available: false,
+            version: current.clone(),
+            current_version: current,
+            notes: String::new(),
+        });
+    }
     let found = app.updater()?.check().await?;
     Ok(match found {
         Some(update) => UpdateInfo {
@@ -134,6 +142,9 @@ pub async fn check(app: &AppHandle) -> Result<UpdateInfo> {
 }
 
 pub async fn install(app: &AppHandle) -> Result<()> {
+    if config::PRERELEASE {
+        return Err(Error::Other("A pre-release launcher does not update itself; ask for the next build.".into()));
+    }
     refuse_if_not_self_updatable()?;
     refuse_if_mid_session()?;
 

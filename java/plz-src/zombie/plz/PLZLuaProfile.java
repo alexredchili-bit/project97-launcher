@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 import se.krka.kahlua.vm.LuaClosure;
 import zombie.Lua.Event;
+import zombie.plz.access.PLZEventAccess;
 
 /** Per-handler Lua timing as cumulative counters, not a per-call event stream: two nanoTime reads
  *  and two array adds per callback, nothing allocated. See java-patch/README.md. */
@@ -46,7 +47,7 @@ public final class PLZLuaProfile {
     public static void reset() {
         synchronized (LOCK) {
             for (int i = 0; i < TRACKED.size(); i++) {
-                TRACKED.get(i).plzResetCounters();
+                ((PLZEventAccess) (Object) TRACKED.get(i)).plzResetCounters();
             }
         }
         windowStartNanos = System.nanoTime();
@@ -110,8 +111,8 @@ public final class PLZLuaProfile {
         ArrayList<Row> rows = new ArrayList<>(512);
         for (int e = 0; e < snapshot.size(); e++) {
             Event event = snapshot.get(e);
-            long[] nanos = event.plzNanos();
-            long[] calls = event.plzCalls();
+            long[] nanos = ((PLZEventAccess) (Object) event).plzNanos();
+            long[] calls = ((PLZEventAccess) (Object) event).plzCalls();
             if (nanos == null || calls == null) {
                 continue;
             }

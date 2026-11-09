@@ -276,7 +276,7 @@ Steam has not downloaded the release above. Leave the game closed and let it fin
                 install::find_install(st.install_dir.as_deref()),
                 payload::fetch_manifest().await,
             ) {
-                (Ok(dir), Ok(m)) => match patch::apply(&mut st, &dir, m.build) {
+                (Ok(dir), Ok(m)) => match patch::apply(&mut st, &dir, m.build, m.agent.as_ref()) {
                     Ok(()) => {
                         line("patched", install::json_path(&dir).display());
                         println!("\n--- ProjectZomboid64.json ---");

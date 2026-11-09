@@ -14,6 +14,7 @@ import zombie.iso.IsoWorld;
 import zombie.network.GameClient;
 import zombie.popman.animal.AnimalInstanceManager;
 import zombie.popman.animal.AnimalSynchronizationManager;
+import zombie.plz.access.PLZAnimalSynchronizationManagerAccess;
 
 public final class PLZAnimalSync {
     public static final long STALE_MS = 8000L;
@@ -129,9 +130,9 @@ public final class PLZAnimalSync {
     }
 
     public static void touch(IsoAnimal animal, boolean fromRequest) {
-        animal.plzNetSeenMs = System.currentTimeMillis();
+        ((zombie.plz.access.PLZIsoAnimalAccess) animal).plzSetNetSeenMs(System.currentTimeMillis());
         if (!fromRequest) {
-            animal.plzNetAsks = 0;
+            ((zombie.plz.access.PLZIsoAnimalAccess) animal).plzSetNetAsks(0);
         }
     }
 
@@ -156,15 +157,15 @@ public final class PLZAnimalSync {
         orphans.clear();
         asks.clear();
         for (IsoMovingObject object : cell.getObjectList()) {
-            if (object instanceof IsoAnimal animal && animal.plzNetSeenMs > 0L && isWatched(animal)) {
+            if (object instanceof IsoAnimal animal && ((zombie.plz.access.PLZIsoAnimalAccess) animal).plzGetNetSeenMs() > 0L && isWatched(animal)) {
                 if (manager.get(animal.getOnlineID()) != animal) {
                     orphans.add(animal);
-                } else if (shouldAsk(now, animal.plzNetSeenMs, animal.plzNetAskedMs, animal.plzNetAsks) && nearLocalPlayer(animal, radius)) {
+                } else if (shouldAsk(now, ((zombie.plz.access.PLZIsoAnimalAccess) animal).plzGetNetSeenMs(), ((zombie.plz.access.PLZIsoAnimalAccess) animal).plzGetNetAskedMs(), ((zombie.plz.access.PLZIsoAnimalAccess) animal).plzGetNetAsks()) && nearLocalPlayer(animal, radius)) {
                     if (asks.size() >= MAX_ASKS_PER_PASS) {
                         OVER_BUDGET.incrementAndGet();
                     } else {
-                        animal.plzNetAskedMs = now;
-                        animal.plzNetAsks++;
+                        ((zombie.plz.access.PLZIsoAnimalAccess) animal).plzSetNetAskedMs(now);
+                        ((zombie.plz.access.PLZIsoAnimalAccess) animal).plzSetNetAsks(((zombie.plz.access.PLZIsoAnimalAccess) animal).plzGetNetAsks() + 1);
                         asks.add(animal.getOnlineID());
                     }
                 }
@@ -185,7 +186,7 @@ public final class PLZAnimalSync {
             if (ASKED.getAndAdd(asks.size()) == 0L) {
                 DebugLog.log("PLZAnimalSync: first stale animal re-requested, id " + asks.get(0));
             }
-            AnimalSynchronizationManager.getInstance().plzRequest(GameClient.connection, asks);
+            ((PLZAnimalSynchronizationManagerAccess) AnimalSynchronizationManager.getInstance()).plzRequest(GameClient.connection, asks);
         }
 
         if (!asks.isEmpty() || !orphans.isEmpty()) {

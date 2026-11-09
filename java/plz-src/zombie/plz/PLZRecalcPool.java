@@ -12,6 +12,7 @@ import zombie.core.logger.ExceptionLogger;
 import zombie.debug.DebugType;
 import zombie.gameStates.GameLoadingState;
 import zombie.iso.IsoChunk;
+import zombie.plz.access.PLZIsoChunkAccess;
 
 /**
  * Chunk recalculation on a worker pool instead of the streamer thread.
@@ -123,7 +124,7 @@ public final class PLZRecalcPool {
         boolean ok = true;
         try {
             if (!chunk.refs.isEmpty()) {
-                chunk.recalcPooled();
+                ((PLZIsoChunkAccess) (Object) chunk).recalcPooled();
             }
         } catch (Throwable t) {
             ExceptionLogger.logException(t);

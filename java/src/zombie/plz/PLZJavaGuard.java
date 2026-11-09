@@ -33,7 +33,10 @@ public final class PLZJavaGuard {
     private static final String[] JVM_FLAGS = {
         "-javaagent", "-agentlib", "-agentpath", "-Xbootclasspath", "--patch-module", "-Djava.system.class.loader"
     };
-    private static final String[] OPTION_ENV = {"JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS"};
+    static final String AGENT_DIR = "agent";
+    static final String AGENT_JAR = "plz-agent.jar";
+    static final String AGENT_NATIVE = "plz-native.dll";
+    private static final String[] OPTION_ENV ={"JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS"};
 
     private static volatile List<String> cached;
 
@@ -104,7 +107,7 @@ public final class PLZJavaGuard {
             List<String> found = new ArrayList<>();
             Set<String> index = new HashSet<>(Arrays.asList(PLZPayloadIndex.CLIENT));
             scanClassPath(System.getProperty("java.class.path", ""), ownRoot(), index, found);
-            scanJvmOptions(jvmOptions(), found);
+            scanJvmOptions(jvmOptions(), ownRoot(), found);
             String loader = ClassLoader.getSystemClassLoader().getClass().getName();
             if (!loader.startsWith("jdk.internal.loader.")) {
                 found.add("class loader " + loader);
@@ -232,6 +235,10 @@ public final class PLZJavaGuard {
     }
 
     static void scanJvmOptions(List<String> options, List<String> out) {
+        scanJvmOptions(options, null, out);
+    }
+
+    static void scanJvmOptions(List<String> options, Path ownRoot, List<String> out) {
         for (String option : options) {
             for (String flag : JVM_FLAGS) {
                 if (!option.startsWith(flag)) {
@@ -244,6 +251,9 @@ public final class PLZJavaGuard {
                 int args = value.indexOf('=');
                 if (args >= 0) {
                     value = value.substring(0, args);
+                }
+                if (isOwnAgent(flag, value, ownRoot)) {
+                    break;
                 }
                 String finding = ("JVM option " + flag + " " + leaf(value)).trim();
                 if (!out.contains(finding)) {
@@ -274,6 +284,27 @@ public final class PLZJavaGuard {
             sb.append(c < 0x20 || c == '#' ? '_' : c);
         }
         return sb.toString();
+    }
+
+    static boolean isOwnAgent(String flag, String value, Path ownRoot) {
+        String expected;
+        if ("-javaagent".equals(flag)) {
+            expected = AGENT_JAR;
+        } else if ("-agentpath".equals(flag)) {
+            expected = AGENT_NATIVE;
+        } else {
+            return false;
+        }
+        if (ownRoot == null || value.isEmpty()) {
+            return false;
+        }
+        try {
+            Path given = real(Paths.get(value).toAbsolutePath().normalize());
+            Path ours = real(ownRoot.resolve(AGENT_DIR).resolve(expected));
+            return Files.isRegularFile(ours) && given.equals(ours);
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     private static String leaf(String path) {

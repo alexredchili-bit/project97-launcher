@@ -5,7 +5,7 @@ public final class PLZChecksumExemptList {
     private PLZChecksumExemptList() {
     }
 
-    public static final String SOURCE_SHA256 = "98426372B00E313D42F68DA9C90914AA78A8FA0E476461457D31B419C2B529CF";
+    public static final String SOURCE_SHA256 = "55D1C1F7F2BA0FE2BE6DF45957FE182255B52916E40848361FA0F715F59EDB67";
 
     public static final String[] MOD_IDS = { "damnlib", "49ford8N", "85clubMan", "tsarslib", "amclub", "ATA_Bus", "autotsartrailers", "AquatsarYachtClubB42", "agrotsar42", "rSemiTruck", "USPSTruck" };
 

@@ -25,6 +25,7 @@ import zombie.core.raknet.UdpConnection;
 import zombie.core.znet.ZNetStatistics;
 import zombie.debug.DebugLog;
 import zombie.network.PacketTypes;
+import zombie.plz.access.PLZUdpConnectionAccess;
 
 public final class PLZNetProbe {
     public static final long DEFAULT_INTERVAL_MS = 5000L;
@@ -115,7 +116,7 @@ public final class PLZNetProbe {
         try {
             for (int i = 0; i < connections.size(); i++) {
                 UdpConnection c = connections.get(i);
-                if (c.plzNetTally == null) {
+                if (((PLZUdpConnectionAccess) c).plzGetNetTally() == null) {
                     continue;
                 }
 
@@ -184,13 +185,13 @@ public final class PLZNetProbe {
             String user = c.getUserName();
             boolean watch = user != null && names.contains(user.toLowerCase(Locale.ROOT));
             if (!watch) {
-                c.plzNetTally = null;
+                ((PLZUdpConnectionAccess) c).plzSetNetTally(null);
                 continue;
             }
 
-            Tally tally = c.plzNetTally;
+            Tally tally = ((PLZUdpConnectionAccess) c).plzGetNetTally();
             if (tally == null) {
-                c.plzNetTally = new Tally();
+                ((PLZUdpConnectionAccess) c).plzSetNetTally(new Tally());
             }
 
             long guid = c.getConnectedGUID();
