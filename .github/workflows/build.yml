@@ -56,7 +56,7 @@ jobs:
             name: linux
             bundles: deb,appimage
             args: ""
-          - os: macos-14
+          - os: macos-15
             name: macos
             bundles: dmg,app
             args: --target universal-apple-darwin

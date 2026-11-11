@@ -8,6 +8,7 @@ pub mod jvmpath;
 pub mod launch;
 pub mod linuxfix;
 pub mod live;
+pub mod macplist;
 pub mod news;
 pub mod patch;
 pub mod payload;

@@ -27,7 +27,9 @@ restored when the game exits. If the launcher is killed mid-session, the next st
 restores it before doing anything else.
 
 macOS has no `ProjectZomboid64.json`, so there the payload is copied into the app bundle's
-`Contents/Java` instead. Every file written is recorded, and a restore removes exactly those.
+`Contents/Java` instead, and the agent goes in as the first `JVMOptions` entry of
+`Project Zomboid.app/Contents/Info.plist`. Every file written is recorded, the plist is backed up
+first, and a restore removes exactly those files and puts the original plist back.
 
 ### Cinema films
 

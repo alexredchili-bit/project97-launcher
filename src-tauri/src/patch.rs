@@ -26,9 +26,12 @@ fn is_our_agent_arg(arg: &str) -> bool {
         || (arg.starts_with(NATIVE_FLAG) && arg.ends_with(NATIVE_NAME))
 }
 
+fn payload_path_in(base: &Path, rel: &str) -> std::path::PathBuf {
+    rel.split('/').fold(base.to_path_buf(), |dir, part| dir.join(part))
+}
+
 fn payload_path(build: u64, rel: &str) -> std::path::PathBuf {
-    rel.split('/')
-        .fold(config::patch_dir(build), |dir, part| dir.join(part))
+    payload_path_in(&config::patch_dir(build), rel)
 }
 
 /// The JVM loads agents in command-line order, and the native helper has to be in memory
@@ -63,6 +66,35 @@ pub const DEFAULT_HEAP_MB: u32 = 3072;
 /// folder is an install that moved, was uninstalled, or lives on a drive that is not mounted.
 fn install_is_unreachable(json_path: &Path) -> bool {
     !json_path.is_file() && !json_path.parent().is_some_and(Path::is_dir)
+}
+
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+struct BankedPlist {
+    backup_path: std::path::PathBuf,
+    original_sha256: String,
+    patched: Vec<u8>,
+}
+
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn bank_plist_with_agent(plist_path: &Path, backup_dir: &Path, jar: &Path) -> Result<BankedPlist> {
+    let shipped = fs::read(plist_path)?;
+    // A plist still carrying an agent line (a crashed session, or the manual guide) is not an original.
+    let original = crate::macplist::without_agent(&shipped)?;
+    let original_sha256 = hex::encode(<sha2::Sha256 as sha2::Digest>::digest(&original));
+    let backup_path = backup_dir.join("Info.plist");
+    fs::create_dir_all(backup_dir)?;
+    fs::write(&backup_path, &original)?;
+    if install::sha256_file(&backup_path)? != original_sha256 {
+        return Err(Error::Other("backup verification failed".into()));
+    }
+    let patched = crate::macplist::with_agent(&original, &jar.to_string_lossy())?;
+    Ok(BankedPlist { backup_path, original_sha256, patched })
+}
+
+fn file_label(path: &Path) -> String {
+    path.file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| path.display().to_string())
 }
 
 pub fn repair(st: &mut State) -> Result<bool> {
@@ -103,18 +135,18 @@ pub fn repair(st: &mut State) -> Result<bool> {
             let actual = install::sha256_file(json_path)?;
             if actual != original {
                 return Err(Error::Other(format!(
-                    "restored ProjectZomboid64.json does not match the recorded original \
+                    "restored {} does not match the recorded original \
                      (expected {}, got {}). Verify the game files in Steam.",
+                    file_label(json_path),
                     &original[..12],
                     &actual[..12]
                 )));
             }
         } else if !json_path.is_file() {
-            return Err(Error::Other(
-                "ProjectZomboid64.json and its backup are both missing. \
-                 Verify the game files in Steam."
-                    .into(),
-            ));
+            return Err(Error::Other(format!(
+                "{} and its backup are both missing. Verify the game files in Steam.",
+                file_label(json_path)
+            )));
         }
     }
 
@@ -232,17 +264,39 @@ pub fn apply(st: &mut State, install_dir: &Path, build: u64, agent: Option<&Agen
 
     #[cfg(target_os = "macos")]
     {
-        let _ = agent;
         let installed = install_payload(install_dir, build)?;
-        st.active_patch = Some(ActivePatch {
+        let mut active = ActivePatch {
             json_path: None,
             backup_path: None,
             original_sha256: None,
             installed_files: installed,
             build,
             patched_at_millis: state::now_millis(),
-        });
-        st.save()?;
+        };
+        if let Some(agent) = agent {
+            let jar = payload_path_in(&install::game_dir(install_dir), &agent.jar);
+            if !jar.is_file() {
+                remove_installed(install_dir, &active.installed_files)?;
+                return Err(Error::Other(format!("the patch is missing {}; sync again", agent.jar)));
+            }
+            let plist_path = install::info_plist_path(install_dir);
+            let banked = match bank_plist_with_agent(&plist_path, &config::backup_dir(), &jar) {
+                Ok(banked) => banked,
+                Err(e) => {
+                    remove_installed(install_dir, &active.installed_files)?;
+                    return Err(e);
+                }
+            };
+            active.json_path = Some(plist_path.clone());
+            active.backup_path = Some(banked.backup_path);
+            active.original_sha256 = Some(banked.original_sha256);
+            st.active_patch = Some(active);
+            st.save()?;
+            fs::write(&plist_path, banked.patched)?;
+        } else {
+            st.active_patch = Some(active);
+            st.save()?;
+        }
         let _ = fs::remove_file(config::stamp_path());
         return Ok(());
     }
@@ -418,6 +472,43 @@ pub fn read_stamp() -> Option<Stamp> {
 #[cfg(test)]
 mod repair_tests {
     use super::*;
+
+    const MAC_PLIST: &str = include_str!("../tests/fixtures/mac-Info.plist");
+
+    #[test]
+    fn a_mac_session_restores_the_exact_plist_steam_shipped() {
+        for (tag, shipped) in [
+            ("clean", MAC_PLIST.to_string()),
+            (
+                "manual",
+                MAC_PLIST.replace(
+                    "<key>JVMOptions</key>\n\t<array>\n",
+                    "<key>JVMOptions</key>\n\t<array>\n\t\t<string>-javaagent:/x/plz-agent.jar</string>\n",
+                ),
+            ),
+        ] {
+            let root = std::env::temp_dir().join(format!("plz-mac-{}-{}", std::process::id(), tag));
+            let _ = fs::remove_dir_all(&root);
+            fs::create_dir_all(&root).unwrap();
+            let plist = root.join("Info.plist");
+            fs::write(&plist, &shipped).unwrap();
+            let jar = root.join("Contents").join("Java").join("agent").join("plz-agent.jar");
+
+            let banked = bank_plist_with_agent(&plist, &root.join("backup"), &jar).unwrap();
+            fs::write(&plist, &banked.patched).unwrap();
+            let live = String::from_utf8(fs::read(&plist).unwrap()).unwrap();
+            assert_eq!(live.matches("plz-agent.jar").count(), 1, "{tag}");
+            assert!(live.contains(&format!("-javaagent:{}", jar.to_string_lossy())), "{tag}");
+
+            fs::copy(&banked.backup_path, &plist).unwrap();
+            assert_eq!(install::sha256_file(&plist).unwrap(), banked.original_sha256, "{tag}");
+            assert!(!fs::read_to_string(&plist).unwrap().contains("plz-agent.jar"), "{tag}");
+            if tag == "clean" {
+                assert_eq!(fs::read_to_string(&plist).unwrap(), MAC_PLIST);
+            }
+            let _ = fs::remove_dir_all(&root);
+        }
+    }
 
     #[test]
     fn an_install_that_still_has_its_folder_is_reachable() {

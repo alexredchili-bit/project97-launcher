@@ -29,6 +29,11 @@ pub fn game_dir(install: &Path) -> PathBuf {
     }
 }
 
+#[cfg(target_os = "macos")]
+pub fn info_plist_path(install: &Path) -> PathBuf {
+    install.join("Project Zomboid.app").join("Contents").join("Info.plist")
+}
+
 pub fn jar_path(install: &Path) -> PathBuf {
     game_dir(install).join("projectzomboid.jar")
 }
