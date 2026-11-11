@@ -481,7 +481,7 @@ mod repair_tests {
             ("clean", MAC_PLIST.to_string()),
             (
                 "manual",
-                MAC_PLIST.replace(
+                MAC_PLIST.replace("\r\n", "\n").replace(
                     "<key>JVMOptions</key>\n\t<array>\n",
                     "<key>JVMOptions</key>\n\t<array>\n\t\t<string>-javaagent:/x/plz-agent.jar</string>\n",
                 ),

@@ -97,7 +97,7 @@ mod tests {
 
     #[test]
     fn a_hand_added_line_from_the_guide_is_stripped_and_others_survive() {
-        let manual = STEAM_PLIST.replace(
+        let manual = STEAM_PLIST.replace("\r\n", "\n").replace(
             "<array>\n\t\t<string>-Djava.awt.headless=true</string>",
             "<array>\n\t\t<string>-javaagent:/old/place/plz-agent.jar</string>\n\t\t<string>-javaagent:/mods/storm.jar</string>\n\t\t<string>-Djava.awt.headless=true</string>",
         );
