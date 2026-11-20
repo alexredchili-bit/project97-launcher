@@ -103,6 +103,7 @@ public final class PLZPayloadIndex {
         "zombie.plz.PLZVehicleGhost",
         "zombie.plz.PLZVehicleNet",
         "zombie.plz.PLZVehiclePlate",
+        "zombie.plz.PLZVehicleSnap",
         "zombie.plz.PLZVehicleWatch",
         "zombie.plz.PLZVideoTextureAudioSlot",
         "zombie.plz.PLZVideoTextureScreenDrawer",

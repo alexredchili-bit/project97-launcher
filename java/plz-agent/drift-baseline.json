@@ -3432,6 +3432,25 @@
       "updateRegulator()V": "323323883cba45cda6df4509037579c39fe6084a",
       "updateTrailer()V": "4d09ca8685f7ddb6f938826a07af392b4ddff64d"
     },
+    "zombie.core.physics.WorldSimulation": {
+      "<clinit>()V": "b4c995d4113addbea6a36dcb40a035788005e403",
+      "<init>()V": "7aad750bac1e714110f9bf92e4b81b9bb1c193c0",
+      "activateChunkMap(I)V": "61fda71a210b94826aeed99c82f984f61207e8ba",
+      "compareTransform(Lzombie/core/physics/Transform;Lzombie/core/physics/Transform;)Z": "e8fe4aff8720c0d0e22e56bd3d1221b7eefca2f3",
+      "create()V": "383e807fd585bba5ff6981da57f3ab3d7859da32",
+      "deactivateChunkMap(I)V": "160dfab9e70229b5ecc12df00a456bcdbf4a9ba1",
+      "destroy()V": "0c7cae98945885d0adc53901c2e407a05b5b8ec2",
+      "getBulletFrameNo()I": "5806c2a02ddc1ef5cbef1ab1b2159cb695a01ca1",
+      "getDrawer(I)Lzombie/core/textures/TextureDraw$GenericDrawer;": "4a6946c2ace46713066fff31822d4050aa5afa48",
+      "scrollGroundDown(I)V": "c6177c2ee84a60a9dcea0fabc1a1d3820fd55b55",
+      "scrollGroundLeft(I)V": "034f5e3ad8a5929bbe1e63f85c905e2251ae3f53",
+      "scrollGroundRight(I)V": "d07cbabec2ca9486030ded765b4c14b6ae3a0045",
+      "scrollGroundUp(I)V": "bdffdee3ee9c4d9b594437012d39fe5d2db0ff57",
+      "update()V": "1305ba1665155e3d60615bded7ed4ea451de8e38",
+      "updateInternal()V": "bd399cf49935c386ed0f15d88ddf5df9dedfba69",
+      "updatePhysic()V": "e6e2365c7b446bdf3c3878fd3435e1a24370d631",
+      "updateVehiclePhysics()V": "4865d504e869859f0fcd1981591cb13496d47741"
+    },
     "zombie.core.raknet.UdpConnection": {
       "<clinit>()V": "50afb52d618a43d14d707665ff2ed5a8ca47c6be",
       "<init>(Lzombie/core/raknet/UdpEngine;JI)V": "45175c2863f6e62389353ccc6af4cc299f9fd72b",
@@ -9251,6 +9270,12 @@
       "setData([Ljava/lang/Object;)V": "1605dcd8223997ac3b55587f2884aa86c62e6fa4",
       "sync(Lzombie/network/PacketTypes$PacketType;Lzombie/network/IConnection;)V": "6ccf1dcae1cfd1de464e11b77b18ee019a933fb8",
       "write(Lzombie/core/network/ByteBufferWriter;)V": "775b84fcc178145c60525af58e1a43c3409605fd"
+    },
+    "zombie.network.packets.vehicle.VehicleFullUpdatePacket": {
+      "<init>()V": "7beb8a5d2d1103d2c016035111ee0a521a277088",
+      "parse(Lzombie/core/network/ByteBufferReader;Lzombie/network/IConnection;)V": "8b5b19aee7be209ea258f305cff4264fe8b2810b",
+      "setData([Ljava/lang/Object;)V": "3f335c92350c1fdac997f30c5923b6d8e54bc58f",
+      "write(Lzombie/core/network/ByteBufferWriter;)V": "6b3427aead679db6af3090e2a9807a0665c23a52"
     },
     "zombie.network.packets.vehicle.VehiclePhysicsPacket": {
       "<clinit>()V": "04e2f3461dcf241b82d461c91c66ba3b1c523b5f",

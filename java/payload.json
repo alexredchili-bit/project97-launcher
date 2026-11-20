@@ -63,6 +63,7 @@
     "zombie/plz/PLZChunkSquareGetter",
     "zombie/plz/PLZCinema",
     "zombie/plz/PLZClientVitals",
+    "zombie/plz/PLZVehicleSnap",
     "zombie/plz/PLZControllerMappings",
     "zombie/plz/PLZDietScore",
     "zombie/plz/PLZDoorAccess",

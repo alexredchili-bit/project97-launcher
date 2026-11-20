@@ -14,7 +14,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import org.lwjgl.opengl.GL;
+import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GLCapabilities;
 import zombie.core.logger.LoggerManager;
+import zombie.core.opengl.RenderThread;
 import zombie.core.textures.Texture;
 import zombie.core.textures.TextureID;
 
@@ -24,10 +28,24 @@ public final class PLZClientVitals {
         "directMB", "directCount", "mappedMB",
         "gcCycles", "gcMajorCycles", "gcPauses", "gcPauseMs", "gcCycleMs",
         "processCommitMB", "ramTotalMB", "ramFreeMB", "swapTotalMB", "swapFreeMB",
-        "cpuProcessPct", "cpuSystemPct", "threads", "uptimeS", "textureMB", "textureIds",
+        "cpuProcessPct", "cpuSystemPct", "threads", "uptimeS", "textureUploadedMB", "textureIdsCreated",
+        "gpuFreeMB", "gpuSharedFreeMB", "gpuTotalMB", "gpuEvictedMB", "gpuEvictions",
         "musicStreams", "musicStreamsOpened",
     };
     private static final double MB = 1024.0 * 1024.0;
+    private static final int GL_TEXTURE_FREE_MEMORY_ATI = 0x87FC;
+    private static final int GL_GPU_MEMORY_TOTAL_AVAILABLE_NVX = 0x9048;
+    private static final int GL_GPU_MEMORY_CURRENT_AVAILABLE_NVX = 0x9049;
+    private static final int GL_GPU_MEMORY_EVICTION_COUNT_NVX = 0x904A;
+    private static final int GL_GPU_MEMORY_EVICTED_NVX = 0x904B;
+    private static final int[] atiMemInfo = new int[4];
+    private static final Runnable GPU_QUERY = PLZClientVitals::queryGpuMemory;
+    private static volatile boolean gpuQueryPending;
+    private static volatile double gpuFreeMB = -1;
+    private static volatile double gpuSharedFreeMB = -1;
+    private static volatile double gpuTotalMB = -1;
+    private static volatile double gpuEvictedMB = -1;
+    private static volatile double gpuEvictions = -1;
     private static final int TAIL_BYTES = 256 * 1024;
     private static final int LINE_MAX = 220;
     private static final Pattern WIN_PATH = Pattern.compile("[A-Za-z]:[\\\\/][^\\s\"'<>|]*");
@@ -219,14 +237,49 @@ public final class PLZClientVitals {
 
             set("threads", ManagementFactory.getThreadMXBean().getThreadCount());
             set("uptimeS", ManagementFactory.getRuntimeMXBean().getUptime() / 1000.0);
-            set("textureMB", TextureID.totalMemUsed / MB);
-            set("textureIds", Texture.totalTextureID);
+            set("textureUploadedMB", TextureID.totalMemUsed / MB);
+            set("textureIdsCreated", Texture.totalTextureID);
+            set("gpuFreeMB", gpuFreeMB);
+            set("gpuSharedFreeMB", gpuSharedFreeMB);
+            set("gpuTotalMB", gpuTotalMB);
+            set("gpuEvictedMB", gpuEvictedMB);
+            set("gpuEvictions", gpuEvictions);
+            requestGpuMemory();
             set("musicStreams", PLZMusicStream.getOpen());
             set("musicStreamsOpened", PLZMusicStream.getOpened());
             published = values.clone();
         } catch (Throwable t) {
             available = false;
             failure = t.getClass().getSimpleName() + ": " + t.getMessage();
+        }
+    }
+
+    // GL queries need the render context; before the render thread runs, queueing would grab the context from this thread.
+    private static void requestGpuMemory() {
+        if (gpuQueryPending || !RenderThread.isRunning()) {
+            return;
+        }
+        gpuQueryPending = true;
+        RenderThread.queueInvokeOnRenderContext(GPU_QUERY);
+    }
+
+    private static void queryGpuMemory() {
+        try {
+            GLCapabilities caps = GL.getCapabilities();
+            if (caps.GL_NVX_gpu_memory_info) {
+                gpuFreeMB = GL11.glGetInteger(GL_GPU_MEMORY_CURRENT_AVAILABLE_NVX) / 1024.0;
+                gpuTotalMB = GL11.glGetInteger(GL_GPU_MEMORY_TOTAL_AVAILABLE_NVX) / 1024.0;
+                gpuEvictions = GL11.glGetInteger(GL_GPU_MEMORY_EVICTION_COUNT_NVX);
+                gpuEvictedMB = GL11.glGetInteger(GL_GPU_MEMORY_EVICTED_NVX) / 1024.0;
+            } else if (caps.GL_ATI_meminfo) {
+                GL11.glGetIntegerv(GL_TEXTURE_FREE_MEMORY_ATI, atiMemInfo);
+                gpuFreeMB = atiMemInfo[0] / 1024.0;
+                gpuSharedFreeMB = atiMemInfo[2] / 1024.0;
+            }
+        } catch (Throwable t) {
+            gpuFreeMB = -2;
+        } finally {
+            gpuQueryPending = false;
         }
     }
 
@@ -238,7 +291,8 @@ public final class PLZClientVitals {
                 .append(" os=").append(System.getProperty("os.name")).append(' ').append(System.getProperty("os.version"))
                 .append(' ').append(System.getProperty("os.arch"))
                 .append(" cores=").append(Runtime.getRuntime().availableProcessors())
-                .append(" heapMaxMB=").append(Math.round(Runtime.getRuntime().maxMemory() / MB));
+                .append(" heapMaxMB=").append(Math.round(Runtime.getRuntime().maxMemory() / MB))
+                .append(" texCompression=").append(TextureID.useCompression);
             if (ManagementFactory.getOperatingSystemMXBean() instanceof com.sun.management.OperatingSystemMXBean os) {
                 sb.append(" ramMB=").append(Math.round(os.getTotalMemorySize() / MB));
             }
