@@ -976,4 +976,66 @@ abstract class IsoGridSquareMixin {
     private static String plzTickRateStatus() {
         return zombie.plz.PLZTickRate.status();
     }
+
+    @Unique
+    @LuaPublic
+    private static int plzArenaSetZones(String csv) {
+        return zombie.plz.PLZArena.setZones(csv);
+    }
+
+    @Unique
+    @LuaPublic
+    private static String plzArenaStatus() {
+        return zombie.plz.PLZArena.status();
+    }
+
+    @Unique
+    @LuaPublic
+    private static void plzArenaResetCounters() {
+        zombie.plz.PLZArena.resetCounters();
+    }
+
+    @Unique
+    @LuaPublic
+    private static String plzFastState(IsoPlayer player) {
+        return zombie.plz.PLZArena.describe(player);
+    }
+
+    @Unique
+    @LuaPublic
+    private static double plzArenaNow() {
+        return (double)zombie.GameTime.getServerTimeMills();
+    }
+
+    @Unique
+    @LuaPublic
+    private static double plzArenaSeenStamp(IsoPlayer remote) {
+        return zombie.plz.PLZArenaInterp.seenStamp(remote);
+    }
+
+    @Unique
+    @LuaPublic
+    private static double plzArenaPing(IsoPlayer player) {
+        zombie.core.raknet.UdpConnection c = GameServer.getConnectionFromPlayer(player);
+        return c == null ? -1.0 : c.getAveragePing();
+    }
+
+    @Unique
+    @LuaPublic
+    private static int plzArenaCheckHit(
+        double targetId, double seenStamp, double ix, double iy, double iz, double ox, double oy, double oz, double shooterRttMs
+    ) {
+        return zombie.plz.PLZArenaHistory.check(
+            (short)targetId,
+            seenStamp,
+            (float)ix,
+            (float)iy,
+            (float)iz,
+            (float)ox,
+            (float)oy,
+            (float)oz,
+            (long)shooterRttMs,
+            zombie.plz.PLZArenaHistory.WORLD_LOS
+        );
+    }
 }

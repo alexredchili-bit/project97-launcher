@@ -362,10 +362,37 @@ public final class PLZClientVitals {
                     }
                 }
             }
+            appendJoinFreeze(sb);
         } catch (Throwable t) {
             sb.append("evidence failed: ").append(t.getClass().getSimpleName());
         }
-        return clean(sb.toString(), 3000);
+        return clean(sb.toString(), 8000);
+    }
+
+    private static void appendJoinFreeze(StringBuilder sb) throws Exception {
+        File freeze = PLZJoinWatch.file(PLZJoinWatch.FILE);
+        if (!freeze.isFile()) {
+            return;
+        }
+        if (sb.length() > 0 && sb.charAt(sb.length() - 1) != '\n') {
+            sb.append('\n');
+        }
+        sb.append("joinFreeze written ").append(new java.util.Date(freeze.lastModified())).append('\n');
+        String[] lines = PLZJoinWatch.lines(readHead(freeze, TAIL_BYTES));
+        int budget = 4800;
+        for (int i = 0; i < lines.length; i++) {
+            boolean keep = budget > 0 || i == lines.length - 1;
+            if (keep) {
+                String line = trim(lines[i]);
+                sb.append("  ").append(line).append('\n');
+                budget -= line.length() + 3;
+            } else if (i == lines.length - 2) {
+                sb.append("  ...\n");
+            }
+        }
+        File reported = PLZJoinWatch.file(PLZJoinWatch.REPORTED_FILE);
+        reported.delete();
+        freeze.renameTo(reported);
     }
 
     private static File currentDebugLog() {

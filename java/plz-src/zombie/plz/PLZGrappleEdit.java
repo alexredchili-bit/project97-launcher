@@ -372,7 +372,9 @@ public final class PLZGrappleEdit {
         if (relativeTo == null || !relativeTo.isGrappling()) {
             return 0.0F;
         }
-        return side(relativeTo.getSharedGrappleAnimNode(), relativeTo.getSharedGrappleAnimFraction());
+        float side = side(relativeTo.getSharedGrappleAnimNode(), relativeTo.getSharedGrappleAnimFraction());
+        float extra = sideSpacing(relativeTo);
+        return extra == 0.0F ? side : side + Math.copySign(extra, side);
     }
 
     // ------------------------------------------------------------------ body spacing
@@ -399,13 +401,64 @@ public final class PLZGrappleEdit {
         return female ? CHEST_FRONT_FEMALE : CHEST_FRONT_MALE;
     }
 
+    // Model units sideways from the spine, measured on the Bob rig at shoulder height.
+    public static final float CLAVICLE_ROOT = 0.016F;
+    public static final float CLAVICLE_REACH = 0.084F;
+    public static final float UPPER_ARM_RADIUS = 0.035F;
+    public static final float NARROWER_MAX = 0.03F;
+    public static final float WIDER_MAX = 0.2F;
+
+    /** Spine to the outside of the upper arm. */
+    public static float shoulderHalfWidth(float size, float shoulders, float armGirth) {
+        return size * (CLAVICLE_ROOT + CLAVICLE_REACH * shoulders + UPPER_ARM_RADIUS * armGirth);
+    }
+
+    /** Model units beyond a default pair, shoulder to shoulder, for a pair standing side by side. */
+    public static float bodyWidthExtra(float sizeA, float shouldersA, float girthA, float sizeB, float shouldersB, float girthB) {
+        float extra = shoulderHalfWidth(sizeA, shouldersA, girthA) + shoulderHalfWidth(sizeB, shouldersB, girthB)
+            - 2.0F * shoulderHalfWidth(1.0F, 1.0F, 1.0F);
+        return Math.max(-NARROWER_MAX, Math.min(WIDER_MAX, extra));
+    }
+
+    /** A node whose held character stands beside the holder rather than in front or behind. */
+    private static boolean sideways(Entry e) {
+        return Math.abs(e.side) > Math.abs(e.forward);
+    }
+
+    /** Tiles further apart than the node says, front to back or side by side, whichever way this pair stands. */
+    public static float pairSpacing(IGrappleable holder) {
+        return spacing(holder) + sideSpacing(holder);
+    }
+
+    /** Tiles the held character stands further off sideways, for the shoulder widths of the two bodies in this pair. */
+    public static float sideSpacing(IGrappleable holder) {
+        if (holder == null || !holder.isGrappling()) {
+            return 0.0F;
+        }
+        Entry e = find(holder.getSharedGrappleAnimNode());
+        if (e == null || e.spacing == 0.0F || !sideways(e)) {
+            return 0.0F;
+        }
+        IsoGameCharacter a = characterOf(holder);
+        IsoGameCharacter b = characterOf(holder.getGrapplingTarget());
+        if (a == null || b == null) {
+            return 0.0F;
+        }
+        String ua = usernameOf(a);
+        String ub = usernameOf(b);
+        float extra = bodyWidthExtra(
+            PLZBoneScale.getOverall(ua), PLZBoneScale.getAxis(ua, "shoulders", 0), PLZBoneScale.getAxis(ua, "upperArms", 1),
+            PLZBoneScale.getOverall(ub), PLZBoneScale.getAxis(ub, "shoulders", 0), PLZBoneScale.getAxis(ub, "upperArms", 1));
+        return extra * MODEL_TO_TILES * e.spacing;
+    }
+
     /** Tiles the held character stands further off than the node says, for the two bodies in this pair. */
     public static float spacing(IGrappleable holder) {
         if (holder == null || !holder.isGrappling()) {
             return 0.0F;
         }
         Entry e = find(holder.getSharedGrappleAnimNode());
-        if (e == null || e.spacing == 0.0F) {
+        if (e == null || e.spacing == 0.0F || sideways(e)) {
             return 0.0F;
         }
         IsoGameCharacter a = characterOf(holder);

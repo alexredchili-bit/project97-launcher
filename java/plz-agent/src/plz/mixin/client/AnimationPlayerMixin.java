@@ -268,8 +268,9 @@ abstract class AnimationPlayerMixin implements PLZAnimationPlayerAccess {
             return;
         }
 
-        float spacing = PLZGrappleEdit.spacing(holder ? chr : partner);
+        float spacing = PLZGrappleEdit.pairSpacing(holder ? chr : partner);
+        boolean posed = cfg[PLZGrappleIK.CFG_POSED_HELD] > 0.0F;
         PLZGrappleIK.apply(this.plz$ikPose, otherPose, cfg[PLZGrappleIK.CFG_NEAR], cfg[PLZGrappleIK.CFG_FAR], holder,
-            cfg[PLZGrappleIK.CFG_GRIPS] > 0.0F, spacing, cfg[PLZGrappleIK.CFG_POSED_HELD] > 0.0F, this.modelTransforms, now);
+            cfg[PLZGrappleIK.CFG_GRIPS] > 0.0F, spacing, posed, posed || cfg[PLZGrappleIK.CFG_LIFT] > 0.0F, this.modelTransforms, now);
     }
 }

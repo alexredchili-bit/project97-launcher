@@ -72,8 +72,9 @@ public final class PLZGrappleIK {
     public static final int CFG_FAR = 3;
     public static final int CFG_GRIPS = 4;
     public static final int CFG_POSED_HELD = 5;
+    public static final int CFG_LIFT = 6;
 
-    private static final float[] DEFAULT_CFG = { 1.0F, 1.0F, DEFAULT_NEAR, DEFAULT_FAR, 0.0F, 0.0F };
+    private static final float[] DEFAULT_CFG = { 1.0F, 1.0F, DEFAULT_NEAR, DEFAULT_FAR, 0.0F, 0.0F, 0.0F };
 
     /** Keyed by the grappler node. near/far below zero keep the default. */
     public static void setNode(String node, boolean holder, boolean held, float near, float far) {
@@ -82,7 +83,7 @@ public final class PLZGrappleIK {
         }
         float n = near < 0.0F ? DEFAULT_NEAR : near;
         float f = far < 0.0F ? DEFAULT_FAR : far;
-        NODES.put(node.toLowerCase(Locale.ROOT), new float[] { holder ? 1.0F : 0.0F, held ? 1.0F : 0.0F, n, Math.max(f, n + 1.0E-4F), 0.0F, 0.0F });
+        NODES.put(node.toLowerCase(Locale.ROOT), new float[] { holder ? 1.0F : 0.0F, held ? 1.0F : 0.0F, n, Math.max(f, n + 1.0E-4F), 0.0F, 0.0F, 0.0F });
     }
 
     /** The held character's hands keep every contact they make, not only a hand reaching for theirs: an embrace. */
@@ -102,6 +103,16 @@ public final class PLZGrappleIK {
         }
         float[] cfg = nodeConfig(node).clone();
         cfg[CFG_POSED_HELD] = posed ? 1.0F : 0.0F;
+        NODES.put(node.toLowerCase(Locale.ROOT), cfg);
+    }
+
+    /** A carried partner rides the holder's resized chest; for clips posed against default bodies on both sides. */
+    public static void setLift(String node, boolean lift) {
+        if (node == null || node.isEmpty()) {
+            return;
+        }
+        float[] cfg = nodeConfig(node).clone();
+        cfg[CFG_LIFT] = lift ? 1.0F : 0.0F;
         NODES.put(node.toLowerCase(Locale.ROOT), cfg);
     }
 
@@ -473,6 +484,12 @@ public final class PLZGrappleIK {
 
     /** {@code posedHeld}: the authored pair is the holder unresized and the held character as drawn. */
     public static void apply(Pose me, Pose other, float near, float far, boolean holder, boolean grips, float spacing, boolean posedHeld, Matrix4f[] model, long nowMs) {
+        apply(me, other, near, far, holder, grips, spacing, posedHeld, posedHeld, model, nowMs);
+    }
+
+    /** {@code rides}: the held character rises with the holder's resized chest once their feet leave the ground. */
+    public static void apply(Pose me, Pose other, float near, float far, boolean holder, boolean grips, float spacing, boolean posedHeld,
+            boolean rides, Matrix4f[] model, long nowMs) {
         me.clearInfo();
         Rig rig = me.rig;
         Rig otherRig = other.rig;
@@ -488,7 +505,7 @@ public final class PLZGrappleIK {
             sy = (other.wy - me.wy) / apart * spacing;
         }
 
-        float lift = posedHeld && !holder ? carryLift(me, rig, other, otherRig) : 0.0F;
+        float lift = rides && !holder ? carryLift(me, rig, other, otherRig) : 0.0F;
         if (lift != 0.0F) {
             for (int i = 0; i < rig.count; i++) {
                 model[i].m13 += lift;

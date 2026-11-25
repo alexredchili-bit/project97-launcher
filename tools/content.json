@@ -246,7 +246,7 @@
         {
             "id": "3171167894",
             "name": "that DAMN Library",
-            "timeUpdated": 1794943802
+            "timeUpdated": 1795546793
         },
         {
             "id": "3161951724",
@@ -451,12 +451,12 @@
         {
             "id": "3722064198",
             "name": "[42.21MP] Gunworks Framework",
-            "timeUpdated": 1794316282
+            "timeUpdated": 1795532135
         },
         {
             "id": "3722134990",
             "name": "[42.21MP] GoM - Gunz of Marz",
-            "timeUpdated": 1794316303
+            "timeUpdated": 1795532152
         },
         {
             "id": "3401134276",
@@ -511,7 +511,7 @@
         {
             "id": "3461415167",
             "name": "[B42.20+/MP] Bicycle!",
-            "timeUpdated": 1792130704
+            "timeUpdated": 1795572811
         },
         {
             "id": "3402812859",
@@ -662,6 +662,11 @@
             "id": "3739256322",
             "name": "Banger's Retro Car Dashboard [B42]",
             "timeUpdated": 1787786712
+        },
+        {
+            "id": "3661164291",
+            "name": "[B42.20] Medieval Z",
+            "timeUpdated": 1792255318
         },
         {
             "id": "3414634809",
@@ -826,7 +831,7 @@
         {
             "id": "3456675747",
             "name": "[B42.20+ MP] Skateboard!",
-            "timeUpdated": 1792130738
+            "timeUpdated": 1795572971
         },
         {
             "id": "3348522135",
@@ -836,7 +841,7 @@
         {
             "id": "3709126801",
             "name": "Nature's Call [B42.16+ MP]",
-            "timeUpdated": 1794409266
+            "timeUpdated": 1795573238
         },
         {
             "id": "2795036124",
@@ -852,6 +857,11 @@
             "id": "3190137594",
             "name": "FrikiClothes [42.21+/MP]",
             "timeUpdated": 1786218827
+        },
+        {
+            "id": "3810261246",
+            "name": "Training Target - Shooting Range & Training Dummy",
+            "timeUpdated": 1794603067
         }
     ],
     "newsUrl": "https://files.project97.life/news.json",

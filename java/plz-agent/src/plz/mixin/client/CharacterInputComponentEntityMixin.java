@@ -281,6 +281,10 @@ public interface CharacterInputComponentEntityMixin {
         PLZGrappleIK.setPosedHeld(node, posed);
     }
 
+    default void plzGrappleIkLift(String node, boolean lift) {
+        PLZGrappleIK.setLift(node, lift);
+    }
+
     default void plzGrappleIkClearNodes() {
         PLZGrappleIK.clearNodes();
     }
